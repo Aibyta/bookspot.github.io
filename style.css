@@ -1,0 +1,787 @@
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero {
+    background: url('https://img.freepik.com/premium-photo/collage-different-professional-male-female-sportsmen-action-studio-multicolored_667922-10436.jpg') no-repeat center center/cover;
+    height: 100vh;
+    color: white;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 20px;
+    position: relative;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 50, 0.4);
+    z-index: 1;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: auto;
+    animation: fadeInUp 1.5s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero h1 {
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    animation: zoomIn 1s ease;
+}
+
+@keyframes zoomIn {
+    from {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.hero p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    animation: fadeIn 2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.hero button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    background-color: #b3d1ff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #001f4d;
+    transition: all 0.3s ease;
+    animation: pulse 2s infinite;
+}
+
+.hero button:hover {
+    background-color: #001f4d;
+    color: white;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 2rem;
+    }
+
+    .hero p {
+        font-size: 1rem;
+    }
+}
+
+/* === Facilities Section === */
+.facilities {
+    padding: 60px 40px;
+    text-align: center;
+    background: #f9f9f9;
+}
+
+.facilities h2 {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #001f4d;
+    margin-bottom: 40px;
+    animation: fadeInDown 1s ease;
+}
+
+.facility-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    justify-content: center;
+    animation: fadeInUp 1.2s ease;
+}
+
+.facility-card {
+    background: rgb(236, 236, 236);
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 100, 0.1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.facility-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 18px rgba(0, 0, 100, 0.2);
+}
+
+.facility-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+}
+
+.facility-info {
+    padding: 15px;
+    text-align: left;
+}
+
+.facility-info h3 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+    color: #001f4d;
+    text-transform: capitalize;
+}
+
+.facility-info p {
+    font-size: 0.95rem;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.facility-price {
+    font-weight: bold;
+    font-size: 1.2rem;
+    color: #003380;
+}
+
+.facility-price span {
+    font-weight: normal;
+    font-size: 0.8rem;
+    color: #555;
+}
+
+.facility-buttons {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.facility-buttons button {
+    flex: 1;
+    padding: 8px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid #003380;
+    transition: all 0.3s ease;
+}
+
+.facility-buttons .details-btn {
+    background: white;
+    color: #003380;
+}
+
+.facility-buttons .details-btn:hover {
+    background: #003380;
+    color: white;
+}
+
+.facility-buttons .book-btn {
+    background: #003380;
+    color: white;
+}
+
+.facility-buttons .book-btn:hover {
+    background: #001f4d;
+}
+
+/* Animations reused from earlier */
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+/* === Facility Section === */
+.facilities-section {
+    padding: 60px 40px;
+    background: #f4f8ff;
+    text-align: center;
+}
+
+.facilities-section h2 {
+    font-size: 2rem;
+    margin-bottom: 40px;
+    color: #002b5b;
+    animation: fadeIn 1s ease-in-out;
+}
+
+/* Grid Layout */
+.facilities-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    justify-items: center;
+}
+
+/* Facility Card */
+.facility-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 100, 0.1);
+    padding: 20px;
+    max-width: 320px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.facility-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 10px 30px rgba(0, 0, 100, 0.2);
+}
+
+.facility-card img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.facility-card h3 {
+    font-size: 1.2rem;
+    color: #002b5b;
+    margin-bottom: 10px;
+}
+
+.facility-card p {
+    font-size: 0.95rem;
+    margin: 5px 0;
+    color: #333;
+}
+
+.facility-card .price {
+    font-weight: bold;
+    color: #003380;
+}
+
+.facility-card .price span {
+    font-weight: normal;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.card-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.card-buttons button {
+    background-color: #003380;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.card-buttons button:hover {
+    background-color: #001a40;
+}
+
+/* Fade animation for heading */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* === How It Works Section === */
+.how-it-works {
+    padding: 60px 20px;
+    background: #fff;
+    text-align: center;
+}
+
+.how-it-works h2 {
+    font-size: 2rem;
+    margin-bottom: 40px;
+    font-weight: 700;
+    color: #111;
+}
+
+.timeline {
+    position: relative;
+    max-width: 1200px;
+    margin: auto;
+}
+
+.timeline::after {
+    content: '';
+    position: absolute;
+    width: 4px;
+    background-color: #0b0b3b;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: -2px;
+}
+
+.container {
+    padding: 10px 40px;
+    position: relative;
+    width: 40%;
+}
+
+.container.left {
+    left: 0;
+}
+
+.container.right {
+    left: 53%;
+}
+
+.container::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    right: -30px;
+    background-color: #fff;
+    border: 4px solid #0b0b3b;
+    top: 15px;
+    border-radius: 50%;
+    z-index: 1;
+}
+
+.container.right::after {
+    left: -25px;
+}
+
+.content {
+    padding: 20px 25px;
+    background-color: #e6f0ff;
+    position: relative;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 51, 204, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.content:hover {
+    transform: translateY(-4px);
+}
+
+.container.left .content {
+    margin-left: auto;
+    text-align: left;
+}
+
+.container.right .content {
+    margin-right: auto;
+    text-align: left;
+}
+
+@media screen and (max-width: 768px) {
+    .timeline::after {
+        left: 20px;
+    }
+
+    .container {
+        width: 100%;
+        padding-left: 50px;
+        padding-right: 20px;
+    }
+
+    .container.right {
+        left: 0;
+    }
+
+    .container::after {
+        left: 15px;
+    }
+}
+
+.events-section {
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.section-title {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 40px;
+}
+
+.event-card {
+    background-color: #b3d9ff;
+    color: #000;
+    padding: 30px;
+    border-radius: 8px;
+    margin: 20px auto;
+    max-width: 900px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+.event-card.dark {
+    background-color: #00004d;
+    color: #b3d9ff;
+}
+
+.event-details {
+    text-align: left;
+}
+
+.event-details h3 {
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+.countdown {
+    font-weight: bold;
+    font-size: 25px;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.countdown span {
+    display: inline-block;
+    min-width: 60px;
+}
+
+.swiper-container {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow: hidden;
+    /* Hide overflow so next/prev slides don't peek */
+}
+
+.swiper-slide {
+    width: 100% !important;
+}
+
+.review-card {
+    width: 900px;
+    /* fixed width */
+    height: 350px;
+    /* fixed height */
+    position: relative;
+    /* for overlay positioning */
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4s0px;
+    border-radius: 1px;
+    text-align: center;
+}
+
+.review-text {
+    position: fixed;
+    font-size: 1rem;
+    font-weight: bold;
+    top: 10px;
+    left: 80px;
+    bottom: 20px;
+    max-width: 750px;
+    z-index: 10;
+}
+
+.review-name {
+    position: fixed;
+    top: 10px;
+    bottom: 1px;
+    left: -40px;
+}
+
+.review-role {
+    position: fixed;
+    top: 20px;
+    bottom: 1px;
+    left: -40px;
+}
+
+.user-img {
+    width: 100px;
+    height: 100px;
+    left: -40px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 15px;
+    margin-top: 45px;
+}
+
+.swiper-pagination {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.swiper-pagination-bullet {
+    width: 12px;
+    height: 12px;
+    background: #0033cc;
+    opacity: 0.4;
+    margin: 0 6px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.swiper-pagination-bullet-active {
+    opacity: 1;
+    transform: scale(1.3);
+    background: #001144;
+}
+
+.reviews-section {
+    position: relative;
+    padding: 80px 10px;
+    color: rgb(0, 0, 0);
+}
+
+.reviews-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(236, 236, 236, 0.4);
+    /* Adjust darkness */
+    z-index: 1;
+}
+
+.reviews-section * {
+    position: relative;
+    z-index: 2;
+}
+
+.why-choose-us {
+    padding: 50px 20px;
+    text-align: center;
+    background-color: #ffffff;
+}
+
+.why-choose-us h2 {
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 40px;
+    color: #0a0a50;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.feature-card {
+    border: 1px solid #1e3a8a;
+    border-radius: 8px;
+    padding: 5px;
+    height: 220px;
+    transition: transform 0.3s ease;
+    background-color: #fff;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(132, 132, 221, 0.5);
+}
+
+.feature-card img {
+    width: 60px;
+    height: 60px;
+}
+
+.feature-card h3 {
+    font-size: 1.2em;
+    color: #0a0a50;
+    margin-bottom: 1px;
+}
+
+.feature-card p {
+    font-size: 0.95em;
+    color: #333;
+    line-height: 1.5;
+}
+
+.new_footer_area {
+    background: #fbfbfd;
+}
+
+.new_footer_top {
+    padding: 10px 0px 150px;
+    position: relative;
+      overflow-x: hidden;
+}
+.new_footer_area {
+    padding-top: 5px;
+    padding-bottom: 50px;
+}
+
+
+.new_footer_top .footer_bg {
+    position: absolute;
+    bottom: 0;
+    background: url("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEigB8iI5tb8WSVBuVUGc9UjjB8O0708X7Fdic_4O1LT4CmLHoiwhanLXiRhe82yw0R7LgACQ2IhZaTY0hhmGi0gYp_Ynb49CVzfmXtYHUVKgXXpWvJ_oYT8cB4vzsnJLe3iCwuzj-w6PeYq_JaHmy_CoGoa6nw0FBo-2xLdOPvsLTh_fmYH2xhkaZ-OGQ/s16000/footer_bg.png") no-repeat scroll center 0;
+    width: 100%;
+    height: 266px;
+}
+
+.new_footer_top .footer_bg .footer_bg_one {
+    background: url("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEia0PYPxwT5ifToyP3SNZeQWfJEWrUENYA5IXM6sN5vLwAKvaJS1pQVu8mOFFUa_ET4JuHNTFAxKURFerJYHDUWXLXl1vDofYXuij45JZelYOjEFoCOn7E6Vxu0fwV7ACPzArcno1rYuVxGB7JY6G7__e4_KZW4lTYIaHSLVaVLzklZBLZnQw047oq5-Q/s16000/volks.gif") no-repeat center center;
+    width: 330px;
+    height: 105px;
+  background-size:100%;
+    position: absolute;
+    bottom: 0;
+    left: 30%;
+    -webkit-animation: myfirst 22s linear infinite;
+    animation: myfirst 22s linear infinite;
+}
+
+.new_footer_top .footer_bg .footer_bg_two {
+    background: url("https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhyLGwEUVwPK6Vi8xXMymsc-ZXVwLWyXhogZxbcXQYSY55REw_0D4VTQnsVzCrL7nsyjd0P7RVOI5NKJbQ75koZIalD8mqbMquP20fL3DxsWngKkOLOzoOf9sMuxlbyfkIBTsDw5WFUj-YJiI50yzgVjF8cZPHhEjkOP_PRTQXDHEq8AyWpBiJdN9SfQA/s16000/cyclist.gif") no-repeat center center;
+    width: 88px;
+    height: 100px;
+  background-size:100%;
+    bottom: 0;
+    left: 38%;
+    position: absolute;
+    -webkit-animation: myfirst 30s linear infinite;
+    animation: myfirst 30s linear infinite;
+}
+
+
+
+@-moz-keyframes myfirst {
+  0% {
+    left: -25%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@-webkit-keyframes myfirst {
+  0% {
+    left: -25%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes myfirst {
+  0% {
+    left: -25%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+.footer-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    position: relative;
+    z-index: 2;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.footer-description {
+    color: rgb(0, 0, 0);
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+ .copyright {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--dark-color);
+            font-size: 0.9rem;
+        }
+
+@media (max-width: 600px) {
+    
+    .footer-description {
+        font-size: 16px;
+    }
+}
+/*************footer End*****************/

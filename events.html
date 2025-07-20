@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upcoming Tennis Events</title>
+    <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-auth-compat.js"></script>
+    <style>
+        :root {
+            --primary: #2575fc;
+            --primary-light: #4887f5;
+            --primary-dark: #1569fa;
+            --background: #f5f7fa;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --text-light: #666666;
+            --border: #e0e0e0;
+            --confirmed: #4caf50;
+            --disabled: #bdbdbd;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background-color: var(--background);
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto 0 6rem;
+            padding: 20px;
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 600;
+        }
+        
+        .events-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 30px;
+        }
+        
+        .event-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        
+        .event-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        
+        .event-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .event-title {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding-right: 30px;
+        }
+        
+        .event-organizer {
+            margin-top: 8px;
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+        
+        .event-body {
+            padding: 20px;
+        }
+        
+        .event-detail {
+            display: flex;
+            margin-bottom: 15px;
+            align-items: flex-start;
+        }
+        
+        .event-detail i {
+            margin-right: 12px;
+            color: var(--primary);
+            width: 20px;
+            text-align: center;
+            margin-top: 3px;
+        }
+        
+        .event-detail-content {
+            flex: 1;
+        }
+        
+        .event-detail-label {
+            font-weight: 500;
+            color: var(--primary-dark);
+            margin-bottom: 2px;
+            font-size: 0.9rem;
+        }
+        
+        .event-detail-value {
+            color: var(--text);
+            font-size: 1.05rem;
+        }
+        
+        .participants-section {
+            margin-top: 20px;
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+        
+        .participants-title {
+            font-weight: 600;
+            color: var(--primary-dark);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .participants-list {
+            display: grid;
+            gap: 8px;
+        }
+        
+        .participant-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: rgba(129, 199, 132, 0.1);
+            border-radius: 6px;
+        }
+        
+        .participant-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .event-actions {
+            padding: 15px 20px;
+            background-color: rgba(129, 199, 132, 0.05);
+            display: flex;
+            justify-content: center;
+            border-top: 1px solid var(--border);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .btn-confirmed {
+            background-color: var(--confirmed);
+            color: white;
+            cursor: default;
+        }
+        
+        .btn-disabled {
+            background-color: var(--disabled);
+            color: white;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary i,
+        .btn-confirmed i,
+        .btn-disabled i {
+            margin-right: 8px;
+        }
+        
+        .participant-status {
+            font-size: 0.85rem;
+            margin-top: 5px;
+            color: var(--confirmed);
+            font-weight: 500;
+            margin-left: 34px;
+        }
+        
+        .no-events {
+            text-align: center;
+            grid-column: 1 / -1;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        
+        .no-events i {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #cccccc;
+        }
+        
+        .loading {
+            text-align: center;
+            grid-column: 1 / -1;
+            padding: 60px 20px;
+        }
+        
+        /* Dropdown menu styles */
+        .dropdown {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: inline-block;
+        }
+        
+        .dropdown-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .dropdown-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            z-index: 1;
+            display: none;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        
+        .dropdown-menu.show {
+            display: block;
+        }
+        
+        .dropdown-item {
+            padding: 10px 15px;
+            text-decoration: none;
+            display: block;
+            color: var(--text);
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+            cursor: pointer;
+        }
+        
+        .dropdown-item i {
+            margin-right: 8px;
+            width: 18px;
+            text-align: center;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .dropdown-divider {
+            height: 1px;
+            background-color: var(--border);
+            margin: 5px 0;
+        }
+        
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            margin-left: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .privacy-badge i {
+            margin-right: 4px;
+            font-size: 0.7rem;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-title {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--primary-dark);
+        }
+        
+        .close {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-light);
+            cursor: pointer;
+            border: none;
+            background: none;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--primary-dark);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .modal-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        /* Invite modal styles */
+        .sport-filter {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .sport-filter label {
+            margin-right: 10px;
+            font-weight: 500;
+        }
+        
+        .sport-filter select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid var(--border);
+        }
+        
+        .user-select-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .user-select-item:hover {
+            background-color: rgba(129, 199, 132, 0.1);
+        }
+        
+        .user-select-item input {
+            margin-right: 10px;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--primary-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            color: white;
+            font-weight: 500;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        
+        .user-email {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        .skill-level {
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+            font-weight: 500;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .alert-info {
+            background-color: #e7f5fe;
+            color: #0c5460;
+        }
+        
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        @media (max-width: 768px) {
+            .events-container {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .modal-content {
+                margin: 10px auto;
+                width: 95%;
+                padding: 15px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+    <header class="mb-8 text-left">
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">Upcoming events</h1>
+    </header><br>
+        <div class="events-container" id="eventsContainer">
+            <div class="loading">
+                <p>Loading events...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Event Modal -->
+    <div id="editEventModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Event</h3>
+                <button class="close" onclick="closeModal('editEventModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editEventForm">
+                    <input type="hidden" id="editEventId">
+                    <div class="form-group">
+                        <label for="editEventName">Event Name</label>
+                        <input type="text" id="editEventName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEventDate">Date</label>
+                        <input type="date" id="editEventDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEventTime">Time</label>
+                        <input type="time" id="editEventTime" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editEventLocation">Location</label>
+                        <input type="text" id="editEventLocation" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="editEventDescription">Description</label>
+                        <textarea id="editEventDescription" class="form-control" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('editEventModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEventChanges()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite Friends Modal -->
+    <div id="inviteFriendsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Invite Friends</h3>
+                <button class="close" onclick="closeModal('inviteFriendsModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="sport-filter">
+                    <label for="sportFilter">Sport:</label>
+                    <select id="sportFilter" class="form-control" disabled>
+                        <option value="tennis">Tennis</option>
+                    </select>
+                </div>
+                <div id="potentialParticipants">
+                    <p>Loading players...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeModal('inviteFriendsModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="sendInvitations()">Send Invitations</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDjMwv9Bxff1bUE7CR_S-DPx3NV5kkinTU",
+            authDomain: "nste-booking-system.firebaseapp.com",
+            projectId: "nste-booking-system",
+            storageBucket: "nste-booking-system.appspot.com",
+            messagingSenderId: "574207536433",
+            appId: "1:574207536433:web:0d2aeaacdc280cec019410"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Global variables
+        let currentUser = null;
+        let currentEventId = null;
+        let matchedPlayers = [];
+        let selectedPlayers = [];
+        let currentEventParticipants = [];
+        let currentEventSport = 'tennis';
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            currentUser = await new Promise(resolve => {
+                const unsubscribe = auth.onAuthStateChanged(user => {
+                    unsubscribe();
+                    resolve(user);
+                });
+            });
+
+            loadEvents();
+        });
+
+        async function loadEvents() {
+            const eventsContainer = document.getElementById('eventsContainer');
+            eventsContainer.innerHTML = '<div class="loading"><p>Loading events...</p></div>';
+
+            // Get current date
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayString = today.toISOString().split('T')[0];
+            
+            try {
+                const querySnapshot = await db.collection("events")
+                    .where("date", ">=", todayString)
+                    .orderBy("date")
+                    .get();
+                
+                if (querySnapshot.empty) {
+                    showNoEventsMessage();
+                    return;
+                }
+                
+                const events = [];
+                querySnapshot.forEach((doc) => {
+                    const event = doc.data();
+                    event.id = doc.id;
+                    events.push(event);
+                });
+                
+                displayEvents(events);
+            } catch (error) {
+                console.error("Error getting events: ", error);
+                showErrorMessage();
+            }
+        }
+        
+        function displayEvents(events) {
+            const eventsContainer = document.getElementById('eventsContainer');
+            eventsContainer.innerHTML = '';
+            
+            events.forEach(event => {
+                const eventCard = document.createElement('div');
+                eventCard.className = 'event-card';
+                
+                const dateObj = new Date(event.date);
+                const formattedDate = dateObj.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                
+                // Check if current user is the organizer
+                const isOrganizer = currentUser && event.organizerId === currentUser.uid;
+                
+                // Check if current user has already confirmed
+                const hasConfirmed = currentUser && event.participants && 
+                                  event.participants.includes(currentUser.email);
+                
+                // Store current participants
+                currentEventParticipants = event.participants || [];
+                
+                // Build participants section
+                let participantsHtml = '';
+                if (event.participants && event.participants.length > 0) {
+                    participantsHtml = `
+                        <div class="participants-section">
+                            <div class="participants-title">
+                                <i class="fas fa-users" style="margin-right: 8px;"></i>
+                                ${isOrganizer ? 'Confirmed Participants' : 'Participants'} (${event.participants.length})
+                            </div>
+                            <div class="participants-list">
+                                ${event.participants.map(participant => `
+                                    <div class="participant-item">
+                                        <div class="participant-avatar">
+                                            ${participant.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span>${participant}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            ${hasConfirmed ? `
+                            <div class="participant-status">
+                                <i class="fas fa-check-circle"></i> You have confirmed attendance
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Build action button
+                let actionButton = '';
+                if (currentUser) {
+                    if (hasConfirmed) {
+                        actionButton = `
+                            <div class="event-actions">
+                                <button class="btn btn-confirmed" disabled>
+                                    <i class="fas fa-check-circle"></i> Confirmed
+                                </button>
+                            </div>
+                        `;
+                    } else if (isOrganizer) {
+                        actionButton = `
+                            <div class="event-actions">
+                                <button class="btn btn-disabled" disabled>
+                                    <i class="fas fa-user-tie"></i> You're the Organizer
+                                </button>
+                            </div>
+                        `;
+                    } else {
+                        actionButton = `
+                            <div class="event-actions">
+                                <button class="btn btn-primary" onclick="confirmAttendance('${event.id}', '${currentUser.email}')">
+                                    <i class="fas fa-check-circle"></i> Confirm Attendance
+                                </button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    actionButton = `
+                        <div class="event-actions">
+                            <button class="btn btn-disabled" disabled>
+                                <i class="fas fa-sign-in-alt"></i> Sign in to Confirm
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                // Build dropdown menu for organizer
+                let dropdownMenu = '';
+                if (isOrganizer) {
+                    const isPrivate = event.privacy === 'private';
+                    dropdownMenu = `
+                        <div class="dropdown">
+                            <button class="dropdown-toggle" onclick="toggleDropdown(this)">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div class="dropdown-menu">
+                                <a href="#" class="dropdown-item" onclick="openEditModal('${event.id}')">
+                                    <i class="fas fa-edit"></i> Edit Event
+                                </a>
+                                <a href="#" class="dropdown-item" onclick="toggleEventPrivacy('${event.id}', ${isPrivate})">
+                                    <i class="fas ${isPrivate ? 'fa-lock' : 'fa-globe'}"></i> 
+                                    Make ${isPrivate ? 'Public' : 'Private'}
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" class="dropdown-item" onclick="openInviteModal('${event.id}', '${event.sport || 'tennis'}')">
+                                    <i class="fas fa-user-plus"></i> Invite More Friends
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Privacy badge
+                const privacyBadge = event.privacy === 'private' ? 
+                    `<span class="privacy-badge"><i class="fas fa-lock"></i> Private</span>` : 
+                    `<span class="privacy-badge"><i class="fas fa-globe"></i> Public</span>`;
+                
+                eventCard.innerHTML = `
+                    <div class="event-header">
+                        ${dropdownMenu}
+                        <h3 class="event-title">${event.name || 'Tennis Match'} ${privacyBadge}</h3>
+                        <div class="event-organizer">
+                            <i class="fas fa-user"></i> Organized by: ${event.organizerName || 'Organizer'}
+                        </div>
+                    </div>
+                    <div class="event-body">
+                        <div class="event-detail">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div class="event-detail-content">
+                                <div class="event-detail-label">Date</div>
+                                <div class="event-detail-value">${formattedDate}</div>
+                            </div>
+                        </div>
+                        <div class="event-detail">
+                            <i class="fas fa-clock"></i>
+                            <div class="event-detail-content">
+                                <div class="event-detail-label">Time</div>
+                                <div class="event-detail-value">${event.time || 'To be determined'}</div>
+                            </div>
+                        </div>
+                        <div class="event-detail">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div class="event-detail-content">
+                                <div class="event-detail-label">Location</div>
+                                <div class="event-detail-value">${event.facility || 'Location to be announced'}</div>
+                            </div>
+                        </div>
+                        ${event.description ? `
+                        <div class="event-detail">
+                            <i class="fas fa-align-left"></i>
+                            <div class="event-detail-content">
+                                <div class="event-detail-label">Description</div>
+                                <div class="event-detail-value">${event.description}</div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${participantsHtml}
+                    </div>
+                    ${actionButton}
+                `;
+                
+                eventsContainer.appendChild(eventCard);
+            });
+        }
+        
+        function showNoEventsMessage() {
+            const eventsContainer = document.getElementById('eventsContainer');
+            eventsContainer.innerHTML = `
+                <div class="no-events">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No Upcoming Events</h3>
+                    <p>There are currently no scheduled events. Check back later or create your own event!</p>
+                </div>
+            `;
+        }
+        
+        function showErrorMessage() {
+            const eventsContainer = document.getElementById('eventsContainer');
+            eventsContainer.innerHTML = `
+                <div class="no-events">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error Loading Events</h3>
+                    <p>We couldn't load the events at this time. Please try again later.</p>
+                    <button class="btn btn-primary" onclick="window.location.reload()" style="margin-top: 15px;">
+                        <i class="fas fa-sync-alt"></i> Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Toggle dropdown menu
+        function toggleDropdown(button) {
+            const dropdownMenu = button.nextElementSibling;
+            dropdownMenu.classList.toggle('show');
+            
+            // Close dropdown when clicking elsewhere
+            document.addEventListener('click', function closeDropdown(e) {
+                if (!button.contains(e.target)) {
+                    dropdownMenu.classList.remove('show');
+                    document.removeEventListener('click', closeDropdown);
+                }
+            });
+        }
+        
+        async function confirmAttendance(eventId, userEmail) {
+            try {
+                if (confirm('Are you sure you want to confirm your attendance for this event?')) {
+                    await db.collection("events").doc(eventId).update({
+                        participants: firebase.firestore.FieldValue.arrayUnion(userEmail)
+                    });
+                    alert("Your attendance has been confirmed!");
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error("Error confirming attendance: ", error);
+                alert("There was an error confirming your attendance. Please try again.");
+            }
+        }
+        
+        async function toggleEventPrivacy(eventId, isCurrentlyPrivate) {
+            try {
+                const newPrivacy = isCurrentlyPrivate ? 'public' : 'private';
+                await db.collection("events").doc(eventId).update({
+                    privacy: newPrivacy
+                });
+                alert(`Event is now ${newPrivacy}`);
+                window.location.reload();
+            } catch (error) {
+                console.error("Error toggling privacy: ", error);
+                alert("There was an error changing the event privacy. Please try again.");
+            }
+        }
+        
+        // Edit Event Modal Functions
+        function openEditModal(eventId) {
+            currentEventId = eventId;
+            const modal = document.getElementById('editEventModal');
+            
+            // Load event data
+            db.collection("events").doc(eventId).get()
+                .then(doc => {
+                    const event = doc.data();
+                    document.getElementById('editEventId').value = eventId;
+                    document.getElementById('editEventName').value = event.name || '';
+                    document.getElementById('editEventDate').value = event.date;
+                    document.getElementById('editEventTime').value = event.time || '';
+                    document.getElementById('editEventLocation').value = event.facility || '';
+                    document.getElementById('editEventDescription').value = event.description || '';
+                    
+                    // Set minimum date to today
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('editEventDate').min = today;
+                    
+                    modal.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error("Error loading event: ", error);
+                    alert("Error loading event details. Please try again.");
+                });
+        }
+        
+        async function saveEventChanges() {
+            const eventId = document.getElementById('editEventId').value;
+            const eventData = {
+                name: document.getElementById('editEventName').value,
+                date: document.getElementById('editEventDate').value,
+                time: document.getElementById('editEventTime').value,
+                facility: document.getElementById('editEventLocation').value,
+                description: document.getElementById('editEventDescription').value
+            };
+            
+            try {
+                await db.collection("events").doc(eventId).update(eventData);
+                alert("Event updated successfully!");
+                closeModal('editEventModal');
+                loadEvents();
+            } catch (error) {
+                console.error("Error updating event: ", error);
+                alert("There was an error updating the event. Please try again.");
+            }
+        }
+        
+        // Invite Friends Modal Functions
+        async function openInviteModal(eventId, sport) {
+            currentEventId = eventId;
+            currentEventSport = sport || 'tennis';
+            const modal = document.getElementById('inviteFriendsModal');
+            
+            // Set the sport filter to match the event's sport
+            const sportFilter = document.getElementById('sportFilter');
+            sportFilter.value = currentEventSport;
+            
+            document.getElementById('potentialParticipants').innerHTML = '<p>Loading players...</p>';
+            modal.style.display = 'block';
+            
+            // Load event data to get current participants
+            const eventDoc = await db.collection("events").doc(eventId).get();
+            const event = eventDoc.data();
+            currentEventParticipants = event.participants || [];
+            
+            // Load all players for this sport
+            await loadAllPlayersForSport(currentEventSport);
+        }
+        
+        async function loadAllPlayersForSport(sport) {
+            try {
+                // Get all users who have this sport in their preferredSports array
+                const usersSnapshot = await db.collection('users')
+                    .where('preferredSports', 'array-contains', sport)
+                    .get();
+                
+                if (usersSnapshot.empty) {
+                    document.getElementById('potentialParticipants').innerHTML = `
+                        <div class="alert alert-info">
+                            No players found for ${sport}.
+                        </div>
+                    `;
+                    return;
+                }
+                
+                matchedPlayers = [];
+                usersSnapshot.forEach(doc => {
+                    const user = doc.data();
+                    if (user.uid !== currentUser.uid) { // Don't show current user
+                        matchedPlayers.push({
+                            ...user,
+                            id: doc.id
+                        });
+                    }
+                });
+                
+                // Sort alphabetically by name
+                matchedPlayers.sort((a, b) => a.name.localeCompare(b.name));
+                
+                displayPlayersList();
+            } catch (error) {
+                console.error("Error loading players: ", error);
+                document.getElementById('potentialParticipants').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error loading players. Please try again.
+                    </div>
+                `;
+            }
+        }
+        
+        function displayPlayersList() {
+            let participantsHtml = `
+                <h4>Available Players (${matchedPlayers.length})</h4>
+                <div class="participants-list">
+            `;
+            
+            matchedPlayers.forEach(player => {
+                const isAlreadyParticipant = currentEventParticipants && 
+                    currentEventParticipants.includes(player.email);
+                
+                participantsHtml += `
+                    <div class="user-select-item" onclick="${isAlreadyParticipant ? '' : `togglePlayerSelection(this, '${player.id}')`}" 
+                         style="${isAlreadyParticipant ? 'opacity: 0.6; cursor: not-allowed;' : ''}">
+                        ${!isAlreadyParticipant ? `<input type="checkbox" id="player-${player.id}">` : ''}
+                        <div class="user-avatar">
+                            ${player.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="user-info">
+                            <div class="user-name">${player.name} ${isAlreadyParticipant ? '(Already invited)' : ''}</div>
+                            <div class="user-email">${player.email}</div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <small>Skill Level</small>
+                                <small class="skill-level">${player.skillLevel ? capitalizeFirstLetter(player.skillLevel) : 'Not specified'}</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            participantsHtml += `</div>`;
+            document.getElementById('potentialParticipants').innerHTML = participantsHtml;
+        }
+        
+        function togglePlayerSelection(element, playerId) {
+            const checkbox = element.querySelector('input');
+            checkbox.checked = !checkbox.checked;
+            
+            if (checkbox.checked) {
+                element.style.backgroundColor = 'rgba(129, 199, 132, 0.2)';
+                selectedPlayers.push(playerId);
+            } else {
+                element.style.backgroundColor = '';
+                selectedPlayers = selectedPlayers.filter(id => id !== playerId);
+            }
+        }
+        
+        async function sendInvitations() {
+            if (selectedPlayers.length === 0) {
+                alert("Please select at least one player to invite.");
+                return;
+            }
+            
+            try {
+                // Get event data
+                const eventDoc = await db.collection("events").doc(currentEventId).get();
+                const event = eventDoc.data();
+                
+                // Get selected players data
+                const playersToInvite = matchedPlayers.filter(player => 
+                    selectedPlayers.includes(player.id)
+                );
+                
+                // Add to event participants
+                await db.collection("events").doc(currentEventId).update({
+                    participants: firebase.firestore.FieldValue.arrayUnion(
+                        ...playersToInvite.map(p => p.email)
+                    )
+                });
+                
+                // Send notifications
+                await sendEventNotifications(playersToInvite, event);
+                
+                // Show confirmation
+                showEventConfirmation(event, playersToInvite);
+                
+                // Close modal
+                closeModal('inviteFriendsModal');
+                
+                // Reload events to show updated participant list
+                loadEvents();
+            } catch (error) {
+                console.error("Error sending invitations: ", error);
+                alert("There was an error sending invitations. Please try again.");
+            }
+        }
+        
+        async function sendEventNotifications(players, eventData) {
+            try {
+                const responses = await Promise.all(
+                    players.map(player => {
+                        return fetch('https://nste-email-api.onrender.com/send-event-invite', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                name: player.name,
+                                email: player.email,
+                                eventName: `${eventData.sport} Event`,
+                                date: eventData.date,
+                                time: eventData.time,
+                                organizer: eventData.organizerName,
+                                eventId: eventData.id
+                            })
+                        });
+                    })
+                );
+                
+                console.log('Notifications sent:', responses);
+            } catch (error) {
+                console.error('Error sending notifications:', error);
+            }
+        }
+        
+        function showEventConfirmation(eventData, matchedPlayers) {
+            const playerList = matchedPlayers.map(p => 
+                `${p.name} (${p.email})`
+            ).join('\n');
+            
+            alert(`Invitations sent successfully to:\n\n${playerList}`);
+        }
+        
+        function capitalizeFirstLetter(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            selectedPlayers = []; // Reset selections when closing modal
+        }
+    </script>
+</body>
+</html>

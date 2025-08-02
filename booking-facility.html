@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Book Court | SPORTOVA</title>
+  <title>Book Sports Facilities | NSTE</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/evo-calendar@1.1.3/evo-calendar/css/evo-calendar.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -28,7 +28,7 @@
       box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     }
 
-    .court-image {
+    .facility-image {
       height: 200px;
       object-fit: cover;
     }
@@ -229,6 +229,20 @@
       color: #28a745;
       font-weight: bold;
     }
+    
+    /* Sport icons */
+    .sport-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 5px;
+    }
+    .player-capacity {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background-color: #e9ecef;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 
@@ -280,8 +294,12 @@
               <select class="form-select" id="sportType">
                 <option value="tennis" selected>Tennis</option>
                 <option value="badminton">Badminton</option>
-                <option value="squash">Squash</option>
                 <option value="basketball">Basketball</option>
+                <option value="volleyball">Volleyball</option>
+                <option value="football">Football</option>
+                <option value="futsal">Futsal</option>
+                <option value="squash">Squash</option>
+                <option value="table-tennis">Table Tennis</option>
               </select>
             </div>
             <div class="col-md-3">
@@ -316,7 +334,12 @@
                   <option value="" disabled selected>Select sport</option>
                   <option value="tennis">Tennis</option>
                   <option value="badminton">Badminton</option>
+                  <option value="basketball">Basketball</option>
+                  <option value="volleyball">Volleyball</option>
+                  <option value="football">Football</option>
+                  <option value="futsal">Futsal</option>
                   <option value="squash">Squash</option>
+                  <option value="table-tennis">Table Tennis</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -414,7 +437,7 @@
 
     <div id="calendarSection" style="display: none;">
       <button class="btn btn-outline-secondary mb-3" id="backToFacilitiesBtn">
-        <i class="bi bi-arrow-left"></i> Back to Courts
+        <i class="bi bi-arrow-left"></i> Back to Facilities
       </button>
       <h3 class="mb-3">Select Date for <span id="facilityNameDisplay"></span></h3>
 
@@ -573,7 +596,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <p>Your tennis court booking has been confirmed!</p>
+          <p>Your sports facility booking has been confirmed!</p>
           <div id="bookingDetails" class="mt-3"></div>
         </div>
         <div class="modal-footer">
@@ -625,7 +648,7 @@
     <div class="spinner-border text-primary loading-spinner" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
-    <p class="mt-3">Loading courts...</p>
+    <p class="mt-3">Loading facilities...</p>
   </div>
 
   <!-- Floating Coach Select Button -->
@@ -656,6 +679,19 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+
+    // Sport icons mapping
+    const sportIcons = {
+      tennis: "🎾",
+      badminton: "🏸",
+      basketball: "🏀",
+      volleyball: "🏐",
+      football: "⚽",
+      futsal: "🥅",
+      squash: "🎯",
+      "table-tennis": "🏓",
+      other: "🏟️"
+    };
 
     let currentUser = null;
     let selectedFacility = null;
@@ -691,52 +727,6 @@
       { id: 1, name: "Coach Alex", price: 50, image: "https://cdn.sanity.io/images/1oknuwv8/production/cc88b7a952bbddfd5828b6dc28deee2619bcab75-2000x1334.webp?rect=0,138,2000,1058&w=1200&h=635&fit=crop&auto=format", experience: "5 years", rating: 4.8 },
       { id: 2, name: "Coach Maria", price: 60, image: "https://dbukjj6eu5tsf.cloudfront.net/sidearm.sites/csufullerton.sidearmsports.com/images/2025/1/13/Ellie_Johnson_HS.jpg?width=300", experience: "7 years", rating: 4.9 },
       { id: 3, name: "Coach Sam", price: 45, image: "https://fitintennis.com/wp-content/uploads/2020/04/Javier-professional-tennis-coach-in-Barcelona.jpg", experience: "3 years", rating: 4.5 }
-    ];
-
-    // Sample events data
-    const sampleEvents = [
-      {
-        id: 1,
-        title: "Weekend Tennis Tournament",
-        sport: "tennis",
-        date: "2023-12-02",
-        time: "14:00",
-        duration: 3,
-        facility: "KL Sports Center",
-        skillLevel: "intermediate",
-        playersNeeded: 4,
-        description: "Friendly doubles tournament for intermediate players",
-        organizer: "Alex Tan",
-        image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
-      },
-      {
-        id: 2,
-        title: "Beginner Tennis Clinic",
-        sport: "tennis",
-        date: "2023-12-05",
-        time: "18:00",
-        duration: 2,
-        facility: "PJ Tennis Club",
-        skillLevel: "beginner",
-        playersNeeded: 2,
-        description: "Learn basic tennis techniques with our coach",
-        organizer: "Maria Lim",
-        image: "https://images.unsplash.com/photo-1547347298-4074fc3086f0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
-      },
-      {
-        id: 3,
-        title: "Advanced Tennis Training",
-        sport: "tennis",
-        date: "2023-12-08",
-        time: "19:00",
-        duration: 2,
-        facility: "KL Sports Center",
-        skillLevel: "advanced",
-        playersNeeded: 1,
-        description: "Intensive training session for advanced players",
-        organizer: "Coach Sam",
-        image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80"
-      }
     ];
 
     $(document).ready(function () {
@@ -795,9 +785,8 @@
           // Load other data
           loadFacilities();
           loadEvents();
-          loadFacilitiesForDropdown();
         } else {
-          $('#facilityList').html('<div class="alert alert-warning">Please log in to book courts</div>');
+          $('#facilityList').html('<div class="alert alert-warning">Please log in to book facilities</div>');
           $('#loading').hide();
         }
       });
@@ -875,35 +864,20 @@
       // Search button click
       $('#searchBtn').click(() => {
         currentSport = $('#sportType').val();
-        $('#pageTitle').text(`Book a ${capitalizeFirstLetter(currentSport)} Court`);
+        $('#pageTitle').text(`Book a ${capitalizeFirstLetter(currentSport)} Facility`);
         loadFacilities();
       });
 
       // Sport type change
       $('#sportType').change(() => {
         currentSport = $('#sportType').val();
-        $('#pageTitle').text(`Book a ${capitalizeFirstLetter(currentSport)} Court`);
-      });
-
-      // Private event checkbox
-      $('#eventPrivate').change(function () {
-        if ($(this).is(':checked')) {
-          $('#inviteFriendsContainer').show();
-        } else {
-          $('#inviteFriendsContainer').hide();
-        }
+        $('#pageTitle').text(`Book a ${capitalizeFirstLetter(currentSport)} Facility`);
       });
 
       // Event form submission
       $('#eventForm').submit(function (e) {
         e.preventDefault();
         createEvent();
-      });
-
-      // Redeem points button
-      $('#redeemPointsBtn').click(() => {
-        $('#availablePoints').text(userLoyaltyPoints);
-        $('#redeemModal').modal('show');
       });
 
       // Tab change handler
@@ -1062,7 +1036,6 @@
         playersNeeded: parseInt($('#eventPlayersNeeded').val()),
         facility: $('#eventFacility').val() || null,
         description: $('#eventDescription').val() || '',
-        invitedPlayers: $('#eventPrivate').is(':checked') ? $('#inviteFriends').val() : [],
         organizerId: currentUser.uid,
         organizerName: currentUser.displayName || currentUser.email || "Guest",
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1251,7 +1224,6 @@
 
       $('#eventConfirmModal').modal('show');
       $('#eventForm')[0].reset();
-      $('#inviteFriendsContainer').hide();
     }
 
     async function loadFacilities() {
@@ -1259,22 +1231,30 @@
         const locationFilter = $('#locationSearch').val().toLowerCase();
         const nameFilter = $('#facilityNameSearch').val().toLowerCase();
 
+        // Modified query to handle both old and new data structures
         const snapshot = await db.collection('facilities')
-          .where('type', '==', currentSport)
+          .where('type', 'in', [currentSport, 'sport-facility'])
           .get();
 
         $('#facilityList').empty();
         $('#loading').hide();
 
         if (snapshot.empty) {
-          $('#facilityList').html(`<div class="alert alert-info">No ${currentSport} courts available at the moment</div>`);
+          $('#facilityList').html(`<div class="alert alert-info">No ${currentSport} facilities available at the moment</div>`);
           return;
         }
 
         facilitiesData = [];
         snapshot.forEach(doc => {
           const facility = { id: doc.id, ...doc.data() };
-          facilitiesData.push(facility);
+          // For legacy tennis courts, set sportType
+          if (!facility.sportType && facility.type === currentSport) {
+            facility.sportType = currentSport;
+          }
+          // Only include facilities for the current sport
+          if (facility.sportType === currentSport || facility.type === currentSport) {
+            facilitiesData.push(facility);
+          }
         });
 
         // Apply filters
@@ -1296,19 +1276,29 @@
         filteredFacilities.forEach(facility => {
           const promoBadge = facility.promotion ?
             `<span class="badge bg-danger promo-badge">${facility.promotion}</span>` : '';
+          
+          const sportIcon = sportIcons[facility.sportType || currentSport] || sportIcons.other;
+          const minPlayers = facility.minPlayers || 1;
+          const maxPlayers = facility.maxPlayers || 2;
+          const playerCapacity = maxPlayers > 1 ? 
+            `<span class="player-capacity">${minPlayers}-${maxPlayers} players</span>` : 
+            `<span class="player-capacity">Single player</span>`;
 
           $('#facilityList').append(`
             <div class="col">
               <div class="card facility-card h-100">
                 ${promoBadge}
                 <img src="${facility.image || getDefaultSportImage(currentSport)}" 
-                     class="card-img-top court-image" alt="${facility.name}">
+                     class="card-img-top facility-image" alt="${facility.name}">
                 <div class="card-body">
-                  <h5 class="card-title">${facility.name}</h5>
-                  <p class="card-text">${facility.description || `${capitalizeFirstLetter(currentSport)} court`}</p>
+                  <h5 class="card-title">
+                    <span class="sport-icon">${sportIcon}</span>
+                    ${facility.name}
+                  </h5>
+                  <p class="card-text">${facility.description || `${capitalizeFirstLetter(currentSport)} facility`}</p>
                   <div class="d-flex justify-content-between align-items-center">
                     <span class="badge bg-primary">RM${facility.price || '0'}/hour</span>
-                    <small class="text-muted">${facility.location || ''}</small>
+                    ${playerCapacity}
                   </div>
                 </div>
                 <div class="card-footer bg-transparent">
@@ -1350,12 +1340,12 @@
             })
             .catch(error => {
               console.error("Error loading facility:", error);
-              alert("Error loading court details. Please try again.");
+              alert("Error loading facility details. Please try again.");
             });
         });
       } catch (error) {
         console.error("Error loading facilities:", error);
-        $('#facilityList').html('<div class="alert alert-danger">Error loading courts. Please try again.</div>');
+        $('#facilityList').html('<div class="alert alert-danger">Error loading facilities. Please try again.</div>');
         $('#loading').hide();
       }
     }
@@ -1394,8 +1384,12 @@
       const images = {
         tennis: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80',
         badminton: 'https://images.unsplash.com/photo-1593352216891-b5bfa7b5ba33?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80',
+        basketball: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1490&q=80',
+        volleyball: 'https://images.unsplash.com/photo-1543357486-cf27149a7205?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80',
+        football: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1605&q=80',
+        futsal: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80',
         squash: 'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1025&q=80',
-        basketball: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1490&q=80'
+        "table-tennis": 'https://images.unsplash.com/photo-1519861531473-9200262188bf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1471&q=80'
       };
       return images[sport] || images.tennis;
     }
@@ -1754,7 +1748,7 @@
         timestamp: firebase.firestore.FieldValue.serverTimestamp(),
         price: selectedFacility.price,
         status: 'confirmed',
-        type: 'tennis',
+        type: selectedFacility.sportType || selectedFacility.type,
         addons: {
           snacks: selectedAddons.filter(a => a.type === 'snack'),
           equipment: selectedAddons.filter(a => a.type === 'equipment'),
@@ -1789,7 +1783,7 @@
 
         // Show confirmation
         $('#bookingDetails').html(`
-            <div class="mb-2"><strong>Court:</strong> ${selectedFacility.name}</div>
+            <div class="mb-2"><strong>Facility:</strong> ${selectedFacility.name}</div>
             <div class="mb-2"><strong>Date:</strong> ${selectedDate}</div>
             <div class="mb-2"><strong>Time:</strong> ${selectedSlot}</div>
             ${bookingWithFriend ? `

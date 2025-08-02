@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>User Dashboard | SPORTOVA</title>
+    <title>User Dashboard | NSTE</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
     <style>
         body {
@@ -112,6 +112,26 @@
             margin-bottom: 10px;
         }
 
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+            /* Tightens the spacing between elements */
+        }
+
+        .slogan {
+            font-size: 0.65em;
+            /* About 40% smaller than main text */
+            font-weight: 400;
+            /* Normal weight (not bold) */
+            color: var(--primary-color, #ffffff);
+            /* Uses your variable with fallback */
+            opacity: 0.8;
+            /* Slightly transparent */
+            margin-top: 2px;
+            /* Small gap between name and slogan */
+        }
+
         .home-link {
             color: #adb5bd;
             text-decoration: none;
@@ -153,6 +173,7 @@
             <!-- Added website logo and home link -->
             <div class="website-logo">
                 <img src="img/logo.jpg" alt="Website Logo">
+                <div class="slogan">Book. Play. Win</div>
                 <a href="index.html" class="home-link">← Back to Homepage</a>
             </div>
 
@@ -181,12 +202,12 @@
             if (user) {
                 // Set profile picture
                 const profilePic = document.getElementById('profilePicture');
-                
+
                 // First try photoURL from Auth
                 if (user.photoURL) {
                     profilePic.src = user.photoURL;
                 }
-                
+
                 // Set email from Auth
                 document.getElementById("userEmail").textContent = user.email || 'No email';
 
@@ -196,7 +217,7 @@
                         if (doc.exists) {
                             const userData = doc.data();
                             document.getElementById("userName").textContent = userData.name || 'User';
-                            
+
                             // Override profile picture if exists in Firestore
                             if (userData.photoURL) {
                                 profilePic.src = userData.photoURL;
@@ -205,7 +226,7 @@
                             // Fallback to displayName from Auth
                             document.getElementById("userName").textContent = user.displayName || 'User';
                         }
-                        
+
                         // Final fallback for profile picture
                         if (!profilePic.src || profilePic.src === window.location.href) {
                             profilePic.src = "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png";
@@ -231,4 +252,5 @@
         }
     </script>
 </body>
+
 </html>

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Tennis Courts</title>
+  <title>Manage Sports Facilities</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { font-family: 'Segoe UI', sans-serif; background-color: #f8f9fa; }
-    .court-image { height: 180px; object-fit: cover; }
+    .facility-image { height: 180px; object-fit: cover; }
     .facility-card { transition: transform 0.2s; }
     .facility-card:hover { transform: translateY(-5px); }
     .promo-badge {
@@ -16,57 +16,116 @@
       right: 10px;
       z-index: 1;
     }
+    .sport-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 5px;
+    }
+    .player-capacity {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background-color: #e9ecef;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
   <div class="container py-4">
     <header class="mb-8">
-      <h1 class="text-4xl font-bold text-gray-800 mb-2">Manage Tennis Courts</h1>
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">Manage Sports Facilities</h1>
     </header>
     <br>
     <div class="card mb-4">
       <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Add New Tennis Court</h5>
+        <h5 class="mb-0">Add New Sports Facility</h5>
       </div>
       <div class="card-body">
         <form id="addFacilityForm">
-          <div class="mb-3">
-            <label for="courtName" class="form-label">Court Name</label>
-            <input type="text" class="form-control" id="courtName" required>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="facilityName" class="form-label">Facility Name</label>
+              <input type="text" class="form-control" id="facilityName" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="sportType" class="form-label">Sport Type</label>
+              <select class="form-select" id="sportType" required>
+                <option value="">Select a sport</option>
+                <option value="tennis" selected>Tennis</option>
+                <option value="badminton">Badminton</option>
+                <option value="basketball">Basketball</option>
+                <option value="volleyball">Volleyball</option>
+                <option value="football">Football</option>
+                <option value="futsal">Futsal</option>
+                <option value="squash">Squash</option>
+                <option value="table-tennis">Table Tennis</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
+          
           <div class="mb-3">
-            <label for="courtImage" class="form-label">Court Image URL</label>
-            <input type="url" class="form-control" id="courtImage" required>
+            <label for="facilityImage" class="form-label">Facility Image URL</label>
+            <input type="url" class="form-control" id="facilityImage" required>
           </div>
+          
           <div class="mb-3">
-            <label for="courtDescription" class="form-label">Description</label>
-            <textarea class="form-control" id="courtDescription" rows="3" required></textarea>
+            <label for="facilityDescription" class="form-label">Description</label>
+            <textarea class="form-control" id="facilityDescription" rows="3" required></textarea>
           </div>
-          <div class="mb-3">
-            <label for="courtPrice" class="form-label">Price per Hour (RM)</label>
-            <input type="number" class="form-control" id="courtPrice" min="1" required>
+          
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label for="facilityPrice" class="form-label">Price per Slot (RM)</label>
+              <input type="number" class="form-control" id="facilityPrice" min="1" required>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="minPlayers" class="form-label">Minimum Players</label>
+              <input type="number" class="form-control" id="minPlayers" min="1" value="1">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="maxPlayers" class="form-label">Maximum Players</label>
+              <input type="number" class="form-control" id="maxPlayers" min="1" value="2">
+            </div>
           </div>
+          
           <div class="mb-3">
             <label for="timeSlots" class="form-label">Available Time Slots (comma separated)</label>
             <input type="text" class="form-control" id="timeSlots" 
                    placeholder="6-7 AM, 7-8 AM, 5-6 PM" required>
           </div>
+          
           <div class="mb-3">
-            <label for="courtPromotion" class="form-label">Promotion Text (optional)</label>
-            <input type="text" class="form-control" id="courtPromotion" 
+            <label for="facilityPromotion" class="form-label">Promotion Text (optional)</label>
+            <input type="text" class="form-control" id="facilityPromotion" 
                    placeholder="e.g., 20% Off Weekday Mornings">
             <div class="form-text">Leave blank if no promotion</div>
           </div>
-          <button type="submit" class="btn btn-primary">Add Tennis Court</button>
+          
+          <button type="submit" class="btn btn-primary">Add Sports Facility</button>
         </form>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header bg-primary text-white">
-        <h5 class="mb-0">Existing Tennis Courts</h5>
+        <h5 class="mb-0">Existing Sports Facilities</h5>
       </div>
       <div class="card-body">
+        <div class="mb-3">
+          <label for="sportFilter" class="form-label">Filter by Sport:</label>
+          <select class="form-select" id="sportFilter" style="max-width: 200px;">
+            <option value="all">All Sports</option>
+            <option value="tennis" selected>Tennis</option>
+            <option value="badminton">Badminton</option>
+            <option value="basketball">Basketball</option>
+            <option value="volleyball">Volleyball</option>
+            <option value="football">Football</option>
+            <option value="futsal">Futsal</option>
+            <option value="squash">Squash</option>
+            <option value="table-tennis">Table Tennis</option>
+          </select>
+        </div>
         <div id="facilityList" class="row"></div>
       </div>
     </div>
@@ -93,6 +152,19 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
+    // Sport icons mapping
+    const sportIcons = {
+      tennis: "🎾",
+      badminton: "🏸",
+      basketball: "🏀",
+      volleyball: "🏐",
+      football: "⚽",
+      futsal: "🥅",
+      squash: "🎯",
+      "table-tennis": "🏓",
+      other: "🏟️"
+    };
+
     $(document).ready(function() {
       // Check if user is admin
       auth.onAuthStateChanged(user => {
@@ -102,20 +174,30 @@
         loadFacilities();
       });
 
+      // Filter facilities by sport type
+      $('#sportFilter').change(function() {
+        loadFacilities();
+      });
+
       // Add facility form
       $('#addFacilityForm').submit(async function(e) {
         e.preventDefault();
         
-        const promotionText = $('#courtPromotion').val().trim();
+        const promotionText = $('#facilityPromotion').val().trim();
+        const sportType = $('#sportType').val();
         
         const newFacility = {
-          name: $('#courtName').val(),
-          image: $('#courtImage').val(),
-          description: $('#courtDescription').val(),
-          price: parseInt($('#courtPrice').val()),
+          name: $('#facilityName').val(),
+          sportType: sportType,
+          image: $('#facilityImage').val(),
+          description: $('#facilityDescription').val(),
+          price: parseInt($('#facilityPrice').val()),
+          minPlayers: parseInt($('#minPlayers').val()) || 1,
+          maxPlayers: parseInt($('#maxPlayers').val()) || 2,
           slots: $('#timeSlots').val().split(',').map(s => s.trim()),
           maxBookings: 1,
-          type: 'tennis'
+          type: 'sport-facility',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
         // Only add promotion field if it has value
@@ -127,42 +209,93 @@
           await db.collection('facilities').add(newFacility);
           $('#addFacilityForm')[0].reset();
           loadFacilities();
-          alert('Tennis court added successfully!');
+          alert('Sports facility added successfully!');
         } catch (error) {
           console.error("Error adding facility:", error);
-          alert('Error adding court. Please try again.');
+          alert('Error adding facility. Please try again.');
         }
       });
     });
 
     async function loadFacilities() {
       try {
-        const snapshot = await db.collection('facilities')
-          .where('type', '==', 'tennis')
-          .get();
+        const sportFilter = $('#sportFilter').val();
+        let query = db.collection('facilities');
+        
+        // First try to load all facilities without any filters
+        const snapshot = await query.get();
         
         $('#facilityList').empty();
         
+        if (snapshot.empty) {
+          $('#facilityList').html('<div class="col-12"><div class="alert alert-info">No facilities found</div></div>');
+          return;
+        }
+        
+        let facilities = [];
         snapshot.forEach(doc => {
           const facility = doc.data();
+          facility.id = doc.id;
+          
+          // For legacy tennis courts, set default sportType
+          if (!facility.sportType && facility.type === 'tennis') {
+            facility.sportType = 'tennis';
+          }
+          
+          // Apply filter if not 'all'
+          if (sportFilter === 'all' || facility.sportType === sportFilter) {
+            facilities.push(facility);
+          }
+        });
+        
+        if (facilities.length === 0) {
+          $('#facilityList').html('<div class="col-12"><div class="alert alert-info">No facilities match the filter</div></div>');
+          return;
+        }
+        
+        // Sort by creation date (newest first)
+        facilities.sort((a, b) => {
+          const aDate = a.createdAt ? a.createdAt.toDate() : new Date(0);
+          const bDate = b.createdAt ? b.createdAt.toDate() : new Date(0);
+          return bDate - aDate;
+        });
+        
+        // Display facilities
+        facilities.forEach(facility => {
           const promoBadge = facility.promotion ? 
             `<span class="badge bg-danger promo-badge">${facility.promotion}</span>` : '';
             
+          const sportType = facility.sportType || 'tennis';
+          const sportIcon = sportIcons[sportType] || sportIcons.other;
+          
+          const minPlayers = facility.minPlayers || 1;
+          const maxPlayers = facility.maxPlayers || 2;
+          const playerCapacity = maxPlayers > 1 ? 
+            `<span class="player-capacity">${minPlayers}-${maxPlayers} players</span>` : 
+            `<span class="player-capacity">Single player</span>`;
+            
           $('#facilityList').append(`
-            <div class="col-md-6 mb-4">
+            <div class="col-md-6 col-lg-4 mb-4">
               <div class="card facility-card h-100">
                 ${promoBadge}
-                <img src="${facility.image}" class="card-img-top court-image" alt="${facility.name}">
+                <img src="${facility.image}" class="card-img-top facility-image" alt="${facility.name}">
                 <div class="card-body">
-                  <h5 class="card-title">${facility.name}</h5>
+                  <h5 class="card-title">
+                    <span class="sport-icon">${sportIcon}</span>
+                    ${facility.name}
+                  </h5>
                   <p class="card-text">${facility.description}</p>
-                  <p><strong>Price:</strong> RM${facility.price}/hour</p>
-                  <p><strong>Slots:</strong> ${facility.slots.join(', ')}</p>
-                  ${facility.promotion ? `<p><strong>Promotion:</strong> ${facility.promotion}</p>` : ''}
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <p class="mb-0"><strong>Price:</strong> RM${facility.price}/slot</p>
+                    ${playerCapacity}
+                  </div>
+                  <p><strong>Sport:</strong> ${sportType.charAt(0).toUpperCase() + sportType.slice(1)}</p>
+                  <p><strong>Available Slots:</strong> ${facility.slots.join(', ')}</p>
+                  ${facility.promotion ? `<p class="text-success"><strong>Promotion:</strong> ${facility.promotion}</p>` : ''}
                 </div>
                 <div class="card-footer bg-transparent">
-                  <button class="btn btn-danger delete-btn" data-facility-id="${doc.id}">
-                    Delete Court
+                  <button class="btn btn-danger delete-btn" data-facility-id="${facility.id}">
+                    Delete Facility
                   </button>
                 </div>
               </div>
@@ -171,19 +304,19 @@
         });
 
         $('.delete-btn').click(function() {
-          if (confirm('Are you sure you want to delete this tennis court?')) {
+          if (confirm('Are you sure you want to delete this sports facility?')) {
             const facilityId = $(this).data('facility-id');
             db.collection('facilities').doc(facilityId).delete()
               .then(() => loadFacilities())
               .catch(error => {
                 console.error("Error deleting facility:", error);
-                alert("Error deleting court. Please try again.");
+                alert("Error deleting facility. Please try again.");
               });
           }
         });
       } catch (error) {
         console.error("Error loading facilities:", error);
-        $('#facilityList').html('<div class="alert alert-danger">Error loading courts</div>');
+        $('#facilityList').html('<div class="col-12"><div class="alert alert-danger">Error loading facilities: ' + error.message + '</div></div>');
       }
     }
   </script>

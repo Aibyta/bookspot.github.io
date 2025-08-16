@@ -658,50 +658,23 @@
           usersSnapshot,
           bookingsSnapshot,
           facilitiesSnapshot,
-          feedbackSnapshot
+          postsSnapshot
         ] = await Promise.all([
           db.collection("users").get(),
           db.collection("bookings").orderBy("timestamp", "desc").get(),
           db.collection("facilities").get(),
-          db.collection("feedback").get().catch(() => ({ docs: [] })) // Gracefully handle missing collection
+          db.collection("posts").orderBy("timestamp", "desc").limit(50).get() // Limit to 50 recent posts
         ]);
 
-        // Process users data
-        usersData = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
-        }));
+        // Process core data
+        usersData = processSnapshot(usersSnapshot);
+        bookingsData = processBookings(bookingsSnapshot);
+        facilitiesData = processSnapshot(facilitiesSnapshot);
 
-        // Process bookings data
-        bookingsData = bookingsSnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            date: data.date ? new Date(data.date) : new Date(),
-            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date()
-          };
-        });
+        // Process posts and their comments
+        feedbackData = await processPostsWithComments(postsSnapshot);
 
-        // Process facilities data
-        facilitiesData = facilitiesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-
-        // Process feedback data if available
-        feedbackData = feedbackSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date()
-        }));
-
-        // Initialize empty arrays for other collections
-        coachesData = [];
-        addonsData = [];
-
-        // Update dashboard stats
+        // Update dashboard
         updateDashboardStats();
         renderBookingsChart();
         renderStatusChart();
@@ -714,6 +687,59 @@
         console.error("Error loading dashboard data:", error);
         throw error;
       }
+    }
+
+    // Helper functions
+    function processSnapshot(snapshot) {
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        timestamp: doc.data().timestamp?.toDate?.() || new Date()
+      }));
+    }
+
+    function processBookings(snapshot) {
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date?.toDate?.() || new Date(),
+          timestamp: data.timestamp?.toDate?.() || new Date()
+        };
+      });
+    }
+
+    async function processPostsWithComments(postsSnapshot) {
+      const posts = [];
+
+      // Process posts in batches to avoid too many simultaneous requests
+      for (let i = 0; i < postsSnapshot.docs.length; i += 5) {
+        const batch = postsSnapshot.docs.slice(i, i + 5);
+        const processedBatch = await Promise.all(batch.map(async doc => {
+          const postData = doc.data();
+          const post = {
+            id: doc.id,
+            ...postData,
+            timestamp: postData.timestamp?.toDate?.() || new Date(),
+            comments: []
+          };
+
+          // Get comments subcollection
+          const commentsSnapshot = await db.collection("posts").doc(doc.id).collection("comments").get();
+          post.comments = commentsSnapshot.docs.map(commentDoc => ({
+            id: commentDoc.id,
+            ...commentDoc.data(),
+            timestamp: commentDoc.data().timestamp?.toDate?.() || new Date()
+          }));
+
+          return post;
+        }));
+
+        posts.push(...processedBatch);
+      }
+
+      return posts;
     }
 
     function updateDashboardStats() {
@@ -1037,90 +1063,177 @@
 
     function analyzeFeedbackSentiment() {
       try {
-        // Simple sentiment analysis based on ratings and keywords
-        const positiveKeywords = ['great', 'excellent', 'awesome', 'love', 'good', 'happy', 'wonderful', 'fantastic'];
-        const negativeKeywords = ['bad', 'poor', 'terrible', 'disappointed', 'unhappy', 'horrible', 'awful', 'worst'];
+        // Enhanced keyword lists
+        const positiveKeywords = ['great', 'excellent', 'awesome', 'love', 'good', 'happy',
+          'wonderful', 'fantastic', 'perfect', 'best', 'beautiful'];
+        const negativeKeywords = ['bad', 'poor', 'terrible', 'disappointed', 'unhappy',
+          'horrible', 'awful', 'worst', 'hate', 'dislike'];
 
-        let positiveCount = 0;
-        let neutralCount = 0;
-        let negativeCount = 0;
+        let analysisResults = {
+          positive: 0,
+          neutral: 0,
+          negative: 0,
+          totalItems: 0,
+          mostLikedPost: null,
+          mostCommentedPost: null
+        };
 
-        // If we have feedback data, analyze it
-        if (feedbackData && feedbackData.length > 0) {
-          feedbackData.forEach(feedback => {
-            const text = (feedback.comments || '').toLowerCase();
-            const rating = feedback.rating || 3;
+        // Analyze each post and its comments
+        feedbackData.forEach(post => {
+          // Analyze post caption
+          if (post.caption) {
+            const sentiment = getSentiment(post.caption, positiveKeywords, negativeKeywords);
+            analysisResults[sentiment]++;
+            analysisResults.totalItems++;
+          }
 
-            if (rating >= 4) {
-              positiveCount++;
-            } else if (rating <= 2) {
-              negativeCount++;
-            } else {
-              // For neutral ratings, check keywords
-              const hasPositive = positiveKeywords.some(kw => text.includes(kw));
-              const hasNegative = negativeKeywords.some(kw => text.includes(kw));
-
-              if (hasPositive && !hasNegative) {
-                positiveCount++;
-              } else if (hasNegative && !hasPositive) {
-                negativeCount++;
-              } else {
-                neutralCount++;
-              }
+          // Analyze comments
+          post.comments.forEach(comment => {
+            if (comment.text) {
+              const sentiment = getSentiment(comment.text, positiveKeywords, negativeKeywords);
+              analysisResults[sentiment]++;
+              analysisResults.totalItems++;
             }
           });
-        } else {
-          // If no feedback data, use a simulated analysis
-          positiveCount = Math.floor(Math.random() * 15) + 10;
-          neutralCount = Math.floor(Math.random() * 10) + 5;
-          negativeCount = Math.floor(Math.random() * 5);
-        }
 
-        const totalFeedback = positiveCount + neutralCount + negativeCount;
-        let sentiment = 'neutral';
-        let sentimentClass = 'sentiment-neutral';
-
-        if (totalFeedback > 0) {
-          const positivePercent = (positiveCount / totalFeedback) * 100;
-          const negativePercent = (negativeCount / totalFeedback) * 100;
-
-          if (positivePercent > 60) {
-            sentiment = 'positive';
-            sentimentClass = 'sentiment-positive';
-          } else if (negativePercent > 30) {
-            sentiment = 'negative';
-            sentimentClass = 'sentiment-negative';
+          // Track engagement metrics
+          if (!analysisResults.mostLikedPost ||
+            (post.likes?.length || 0) > (analysisResults.mostLikedPost.likes?.length || 0)) {
+            analysisResults.mostLikedPost = post;
           }
-        }
+
+          if (!analysisResults.mostCommentedPost ||
+            post.comments.length > analysisResults.mostCommentedPost.comments.length) {
+            analysisResults.mostCommentedPost = post;
+          }
+        });
+
+        // Determine overall sentiment
+        const sentiment = determineOverallSentiment(analysisResults);
+        const sentimentClass = `sentiment-${sentiment}`;
 
         // Update UI
-        document.getElementById('sentimentInsight').innerHTML = `
-      Customer sentiment is <span class="${sentimentClass}">${sentiment}</span>.
-      <div class="mt-2 small">
-        ${positiveCount} positive, ${neutralCount} neutral, ${negativeCount} negative feedback items.
-      </div>
-      ${sentiment === 'negative' ? `
-        <div class="mt-2">
-          <span class="badge badge-ai">Action</span>
-          Review negative feedback for service improvement opportunities.
-        </div>
-      ` : ''}
-      ${totalFeedback === 0 ? `
-        <div class="text-muted small mt-2">
-          <i class="bi bi-info-circle"></i> No feedback data available. Showing simulated analysis.
-        </div>
-      ` : ''}
-    `;
-
-        // Update customer insights in AI Highlights
-        document.getElementById('customerInsights').textContent =
-          `Customer sentiment is ${sentiment} with ${positiveCount} positive feedback items.`;
+        updateSentimentUI(analysisResults, sentiment, sentimentClass);
 
       } catch (error) {
         console.error("Error analyzing feedback sentiment:", error);
-        document.getElementById('sentimentInsight').textContent =
-          "Could not analyze feedback sentiment due to data issues.";
+        document.getElementById('sentimentInsight').innerHTML = `
+      <div class="alert alert-warning">
+        Could not analyze community sentiment. Error: ${error.message}
+      </div>
+    `;
       }
+    }
+
+    // Helper functions for sentiment analysis
+    function getSentiment(text, positiveKeywords, negativeKeywords) {
+      const lowerText = text.toLowerCase();
+      const hasPositive = positiveKeywords.some(kw => lowerText.includes(kw));
+      const hasNegative = negativeKeywords.some(kw => lowerText.includes(kw));
+
+      if (hasPositive && !hasNegative) return 'positive';
+      if (hasNegative && !hasPositive) return 'negative';
+      return 'neutral';
+    }
+
+    function determineOverallSentiment(results) {
+      if (results.totalItems === 0) return 'neutral';
+
+      const positiveRatio = results.positive / results.totalItems;
+      const negativeRatio = results.negative / results.totalItems;
+
+      if (positiveRatio > 0.6) return 'positive';
+      if (negativeRatio > 0.3) return 'negative';
+      return 'neutral';
+    }
+
+    function updateSentimentUI(results, sentiment, sentimentClass) {
+      const sentimentElement = document.getElementById('sentimentInsight');
+      const highlightsElement = document.getElementById('customerInsights');
+
+      // Base sentiment analysis
+      let html = `
+    <div class="ai-prediction-title">
+      <i class="bi ${sentiment === 'positive' ? 'bi-emoji-smile' :
+          sentiment === 'negative' ? 'bi-emoji-frown' : 'bi-emoji-neutral'}"></i>
+      Community Sentiment Analysis
+    </div>
+    <p>
+      Overall sentiment is <span class="${sentimentClass}">${sentiment}</span> based on 
+      ${results.totalItems} posts and comments.
+    </p>
+    <div class="row mt-2">
+      <div class="col-md-4">
+        <div class="bg-light p-2 rounded">
+          <i class="bi bi-hand-thumbs-up text-success"></i> 
+          <strong>${results.positive}</strong> positive
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="bg-light p-2 rounded">
+          <i class="bi bi-dash-circle text-warning"></i> 
+          <strong>${results.neutral}</strong> neutral
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="bg-light p-2 rounded">
+          <i class="bi bi-hand-thumbs-down text-danger"></i> 
+          <strong>${results.negative}</strong> negative
+        </div>
+      </div>
+    </div>
+  `;
+
+      // Add engagement highlights if available
+      if (results.mostLikedPost || results.mostCommentedPost) {
+        html += `<div class="mt-3"><strong>Engagement Highlights:</strong></div><ul class="list-unstyled">`;
+
+        if (results.mostLikedPost) {
+          html += `
+        <li class="mb-1">
+          <i class="bi bi-heart-fill text-danger"></i> Most liked post: 
+          "${truncateText(results.mostLikedPost.caption, 40)}"
+          (${results.mostLikedPost.likes?.length || 0} likes)
+        </li>
+      `;
+        }
+
+        if (results.mostCommentedPost) {
+          html += `
+        <li class="mb-1">
+          <i class="bi bi-chat-square-text-fill text-primary"></i> Most commented post: 
+          "${truncateText(results.mostCommentedPost.caption, 40)}"
+          (${results.mostCommentedPost.comments.length} comments)
+        </li>
+      `;
+        }
+
+        html += `</ul>`;
+      }
+
+      // Add recommendations if negative sentiment
+      if (sentiment === 'negative') {
+        html += `
+      <div class="mt-3 alert alert-warning">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>Recommendation:</strong> Consider addressing negative feedback in community posts.
+      </div>
+    `;
+      }
+
+      sentimentElement.innerHTML = html;
+
+      // Update customer insights highlight
+      let highlightsText = `Community sentiment is ${sentiment}. `;
+      if (results.mostLikedPost) {
+        highlightsText += `Most popular post has ${results.mostLikedPost.likes?.length || 0} likes.`;
+      }
+      highlightsElement.textContent = highlightsText;
+    }
+
+    function truncateText(text, maxLength) {
+      if (!text) return 'No caption';
+      return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
     }
 
     function generatePeakHoursInsight() {

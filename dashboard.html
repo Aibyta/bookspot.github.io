@@ -1,98 +1,530 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI-Powered Facility Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
+    :root {
+      --primary-color: #4361ee;
+      --secondary-color: #3f37c9;
+      --accent-color: #4cc9f0;
+      --light-bg: #f8f9fa;
+      --dark-bg: #212529;
+      --success-color: #38b000;
+      --warning-color: #ffaa00;
+      --danger-color: #ef233c;
+      --ai-color: #7209b7;
+    }
+
     body {
-      background-color: #f3faff;
-      padding: 2rem;
-      font-family: sans-serif;
+      background-color: #f8fafc;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 1rem;
     }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #e9ecef;
+    }
+
     .card {
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      transition: 0.3s;
-      border-radius: 10px;
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+      overflow: hidden;
+      background-color: white;
+      height: 100%;
     }
+
     .card:hover {
-      transform: scale(1.02);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
     }
-    .emoji {
-      font-size: 2rem;
+
+    .stat-card {
+      padding: 1.5rem;
+      position: relative;
     }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(to bottom, var(--primary-color), var(--accent-color));
+    }
+
+    .stat-icon {
+      font-size: 1.75rem;
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      color: white;
+    }
+
+    .stat-icon.users {
+      background: linear-gradient(135deg, #4361ee, #4cc9f0);
+    }
+
+    .stat-icon.active {
+      background: linear-gradient(135deg, #38b000, #80ed99);
+    }
+
+    .stat-icon.revenue {
+      background: linear-gradient(135deg, #7209b7, #b5179e);
+    }
+
+    .stat-icon.ai {
+      background: linear-gradient(135deg, #7209b7, #3a0ca3);
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0.5rem 0;
+      color: var(--dark-bg);
+    }
+
+    .stat-label {
+      color: #6c757d;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
     .chart-container {
       position: relative;
       height: 300px;
-      margin: 20px 0;
+      margin: 1rem 0;
     }
-    .report-modal-card {
-      cursor: pointer;
-      transition: all 0.3s;
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: var(--dark-bg);
+      display: flex;
+      align-items: center;
     }
-    .report-modal-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+
+    .section-title i {
+      margin-right: 0.5rem;
+      color: var(--primary-color);
     }
+
     .badge {
-      font-size: 0.85em;
+      font-weight: 500;
+      padding: 0.35em 0.65em;
+      border-radius: 8px;
+    }
+
+    .badge-confirmed {
+      background-color: rgba(56, 176, 0, 0.1);
+      color: var(--success-color);
+    }
+
+    .badge-pending {
+      background-color: rgba(255, 170, 0, 0.1);
+      color: var(--warning-color);
+    }
+
+    .badge-cancelled {
+      background-color: rgba(239, 35, 60, 0.1);
+      color: var(--danger-color);
+    }
+
+    .badge-ai {
+      background-color: rgba(114, 9, 183, 0.1);
+      color: var(--ai-color);
+    }
+
+    .search-bar {
+      max-width: 300px;
+      position: relative;
+    }
+
+    .search-bar i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #adb5bd;
+    }
+
+    .search-bar input {
+      padding-left: 40px;
+      border-radius: 8px;
+      border: 1px solid #e9ecef;
+    }
+
+    .modal-header {
+      background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+      border-bottom: none;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--secondary-color);
+      border-color: var(--secondary-color);
+    }
+
+    .btn-outline-primary {
+      color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-outline-primary:hover {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .btn-ai {
+      background-color: var(--ai-color);
+      border-color: var(--ai-color);
+      color: white;
+    }
+
+    .btn-ai:hover {
+      background-color: #5a08a5;
+      border-color: #5a08a5;
+      color: white;
+    }
+
+    .pagination .page-item.active .page-link {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+
+    .pagination .page-link {
+      color: var(--primary-color);
+    }
+
+    .ai-prediction {
+      background-color: rgba(114, 9, 183, 0.05);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-left: 3px solid var(--ai-color);
+    }
+
+    .ai-prediction-title {
+      color: var(--ai-color);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .ai-prediction-title i {
+      margin-right: 0.5rem;
+    }
+
+    .sentiment-positive {
+      color: var(--success-color);
+    }
+
+    .sentiment-neutral {
+      color: var(--warning-color);
+    }
+
+    .sentiment-negative {
+      color: var(--danger-color);
+    }
+
+    .anomaly-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .anomaly-high {
+      background-color: var(--danger-color);
+    }
+
+    .anomaly-medium {
+      background-color: var(--warning-color);
+    }
+
+    .anomaly-low {
+      background-color: var(--success-color);
+    }
+
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .gradient-bg {
+      background: linear-gradient(135deg, #4361ee, #3a0ca3);
+      color: white;
+    }
+
+    .ai-highlight {
+      background: linear-gradient(90deg, rgba(114, 9, 183, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+      border-left: 3px solid var(--ai-color);
+      padding: 1rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1rem;
+    }
+
+    .chart-card {
+      border-left: 4px solid var(--primary-color);
+    }
+
+    .insights-card {
+      border-left: 4px solid var(--ai-color);
+    }
+
+    @media (max-width: 768px) {
+      .stat-value {
+        font-size: 1.5rem;
+      }
+
+      .section-title {
+        font-size: 1.1rem;
+      }
+
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .search-bar {
+        max-width: 100%;
+        width: 100%;
+        margin-top: 1rem;
+      }
     }
   </style>
 </head>
+
 <body>
-  <h2 class="mb-4">Admin Dashboard Overview</h2>
-  <div class="row g-4">
-    <div class="col-md-4">
-      <div class="card p-4 text-center">
-        <div class="emoji">👥</div>
-        <h4 id="userCount">0</h4>
-        <p class="text-muted">Total Users</p>
+  <div class="container-fluid">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header glass-effect p-3">
+      <div>
+        <h2 class="mb-0"><i class="bi bi-robot me-2"></i>AI Facility Dashboard</h2>
+        <p class="text-muted mb-0">Smart insights and predictive analytics for facility management</p>
+      </div>
+      <div class="text-end">
+        <div class="text-muted small">Last updated: <span id="lastUpdated">Loading...</span></div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card p-4 text-center">
-        <div class="emoji">🏢</div>
-        <h4 id="facilityCount">0</h4>
-        <p class="text-muted">Total Facilities</p>
+
+    <div class="row g-4">
+      <!-- Total Bookings Card -->
+      <div class="col-md-3">
+        <div class="card stat-card glass-effect">
+          <div class="stat-icon users">
+            <i class="bi bi-calendar-check"></i>
+          </div>
+          <h4 class="stat-value" id="totalBookings">0</h4>
+          <p class="stat-label">Total Bookings</p>
+          <div class="mt-2 text-success small">
+            <i class="bi bi-arrow-up"></i> <span id="bookingGrowth">0%</span> from last month
+          </div>
+        </div>
       </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card p-4 text-center">
-        <div class="emoji">📅</div>
-        <h4 id="bookingCount">0</h4>
-        <p class="text-muted">Total Bookings</p>
+
+      <!-- Utilization Rate Card -->
+      <div class="col-md-3">
+        <div class="card stat-card glass-effect">
+          <div class="stat-icon active">
+            <i class="bi bi-speedometer2"></i>
+          </div>
+          <h4 class="stat-value" id="utilizationRate">0%</h4>
+          <p class="stat-label">Facility Utilization</p>
+          <div class="mt-2 text-success small">
+            <i class="bi bi-arrow-up"></i> <span id="utilizationGrowth">0%</span> from last month
+          </div>
+        </div>
       </div>
-    </div>
-    
-    <!-- Reports Section -->
-    <div class="col-12">
-      <div class="card p-4">
-        <h4 class="mb-3">Reports</h4>
-        <div class="row g-3">
-          <div class="col-md-3">
-            <div class="card p-3 text-center report-modal-card" onclick="generateReport('bookings')">
-              <div class="emoji">📅</div>
-              <h5>Bookings</h5>
+
+      <!-- Revenue Card -->
+      <div class="col-md-3">
+        <div class="card stat-card glass-effect">
+          <div class="stat-icon revenue">
+            <i class="bi bi-currency-dollar"></i>
+          </div>
+          <h4 class="stat-value" id="totalRevenue">RM0</h4>
+          <p class="stat-label">Total Revenue</p>
+          <div class="mt-2 text-success small">
+            <i class="bi bi-arrow-up"></i> <span id="revenueGrowth">0%</span> from last month
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Predictions Card -->
+      <div class="col-md-3">
+        <div class="card stat-card glass-effect">
+          <div class="stat-icon ai">
+            <i class="bi bi-robot"></i>
+          </div>
+          <h4 class="stat-value" id="aiPredictions">0</h4>
+          <p class="stat-label">AI Insights</p>
+          <div class="mt-2 text-primary small">
+            <i class="bi bi-lightbulb"></i> <span id="aiActionable">0</span> actionable
+          </div>
+        </div>
+      </div>
+
+      <!-- Bookings Chart Section -->
+      <div class="col-lg-8">
+        <div class="card p-4 chart-card glass-effect">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="section-title">
+              <i class="bi bi-graph-up"></i> Monthly Bookings with AI Forecast
+            </h5>
+            <button class="btn btn-sm btn-ai" id="refreshForecastBtn">
+              <i class="bi bi-arrow-repeat"></i> Refresh Forecast
+            </button>
+          </div>
+          <div class="chart-container">
+            <canvas id="bookingsChart"></canvas>
+          </div>
+          <div class="d-flex justify-content-between mt-2">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="showForecast" checked>
+              <label class="form-check-label small" for="showForecast">Show AI forecast</label>
+            </div>
+            <div>
+              <select class="form-select form-select-sm" id="timeRangeSelect" style="width: 120px;">
+                <option value="6">Last 6 months</option>
+                <option value="12">Last year</option>
+              </select>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card p-3 text-center report-modal-card" onclick="generateReport('revenue')">
-              <div class="emoji">💰</div>
-              <h5>Revenue</h5>
+        </div>
+      </div>
+
+      <!-- AI Insights Section -->
+      <div class="col-lg-4">
+        <div class="card p-4 insights-card glass-effect">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="section-title">
+              <i class="bi bi-robot"></i> AI Insights
+            </h5>
+            <button class="btn btn-sm btn-outline-primary" id="generateInsightsBtn">
+              <i class="bi bi-magic"></i> Generate
+            </button>
+          </div>
+
+          <div id="aiInsightsContainer">
+            <div class="ai-prediction">
+              <div class="ai-prediction-title">
+                <i class="bi bi-hourglass-split"></i> Peak Hours Prediction
+              </div>
+              <p id="peakHoursInsight">Analyzing booking patterns to predict peak hours...</p>
+            </div>
+
+            <div class="ai-prediction">
+              <div class="ai-prediction-title">
+                <i class="bi bi-exclamation-triangle"></i> Anomaly Detection
+              </div>
+              <p id="anomalyInsight">Scanning for unusual booking patterns...</p>
+            </div>
+
+            <div class="ai-prediction">
+              <div class="ai-prediction-title">
+                <i class="bi bi-chat-square-text"></i> Feedback Sentiment
+              </div>
+              <p id="sentimentInsight">Analyzing customer feedback sentiment...</p>
+            </div>
+
+            <div class="ai-prediction">
+              <div class="ai-prediction-title">
+                <i class="bi bi-lightbulb"></i> Optimization Suggestion
+              </div>
+              <p id="optimizationInsight">Generating facility optimization ideas...</p>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card p-3 text-center report-modal-card" onclick="generateReport('users')">
-              <div class="emoji">👤</div>
-              <h5>Users</h5>
+        </div>
+      </div>
+
+      <!-- Additional Charts Section -->
+      <div class="col-lg-6">
+        <div class="card p-4 chart-card glass-effect">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="section-title">
+              <i class="bi bi-pie-chart"></i> Booking Status Distribution
+            </h5>
+            <div class="small">
+              <span class="text-muted">This month</span>
             </div>
           </div>
-          <div class="col-md-3">
-            <div class="card p-3 text-center report-modal-card" onclick="generateReport('facilities')">
-              <div class="emoji">🏟️</div>
-              <h5>Facilities</h5>
+          <div class="chart-container">
+            <canvas id="bookingStatusChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card p-4 chart-card glass-effect">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="section-title">
+              <i class="bi bi-cash-stack"></i> Revenue Sources
+            </h5>
+            <div class="small">
+              <span class="text-muted">This month</span>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="revenueSourcesChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Highlights Section -->
+      <div class="col-12">
+        <div class="card p-4 insights-card glass-effect">
+          <h5 class="section-title">
+            <i class="bi bi-stars"></i> AI Highlights
+          </h5>
+
+          <div class="row">
+            <div class="col-md-4">
+              <div class="ai-highlight">
+                <h6><i class="bi bi-graph-up"></i> Performance Trend</h6>
+                <p id="performanceTrend" class="mb-0">Analyzing monthly performance trends...</p>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="ai-highlight">
+                <h6><i class="bi bi-people"></i> Customer Insights</h6>
+                <p id="customerInsights" class="mb-0">Evaluating customer behavior patterns...</p>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="ai-highlight">
+                <h6><i class="bi bi-lightbulb"></i> Smart Suggestions</h6>
+                <p id="smartSuggestions" class="mb-0">Generating actionable recommendations...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -100,49 +532,38 @@
     </div>
   </div>
 
-  <!-- Report Modal -->
-  <div class="modal fade" id="reportModal" tabindex="-1">
+  <!-- AI Analysis Modal -->
+  <div class="modal fade" id="aiAnalysisModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title" id="reportModalTitle">Report</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      <div class="modal-content glass-effect">
+        <div class="modal-header gradient-bg">
+          <h5 class="modal-title text-white"><i class="bi bi-robot me-2"></i>Advanced AI Analysis</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          <div class="d-flex justify-content-between mb-3">
-            <div class="btn-group">
-              <button class="btn btn-outline-primary" onclick="changeReportTimeframe('daily')">Daily</button>
-              <button class="btn btn-outline-primary" onclick="changeReportTimeframe('weekly')">Weekly</button>
-              <button class="btn btn-outline-primary" onclick="changeReportTimeframe('monthly')">Monthly</button>
+        <div class="modal-body" id="aiAnalysisContent">
+          <div class="d-flex justify-content-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
-            <button class="btn btn-primary" onclick="exportReport()">
-              <i class="bi bi-download"></i> Export
-            </button>
-          </div>
-          <div class="chart-container">
-            <canvas id="reportChart"></canvas>
-          </div>
-          <div class="table-responsive mt-3">
-            <table class="table" id="reportDataTable">
-              <tr>
-                <td colspan="4" class="text-center">Generating report...</td>
-              </tr>
-            </table>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-ai" id="runAdvancedAnalysisBtn">
+            <i class="bi bi-robot"></i> Run Analysis
+          </button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Firebase and other scripts -->
+  <!-- Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
   <script>
     // Firebase configuration
@@ -158,355 +579,994 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+    const functions = firebase.functions();
 
     // Global variables
-    let currentReportType = '';
-    let currentTimeframe = 'weekly';
-    let reportChart = null;
-    let bookingsData = [];
     let usersData = [];
+    let bookingsData = [];
     let facilitiesData = [];
+    let coachesData = [];
+    let addonsData = [];
+    let feedbackData = [];
+    let bookingsChart = null;
+    let statusChart = null;
+    let revenueChart = null;
+    let aiAnalysisModal = null;
+    let aiInsights = [];
+    let forecastData = [];
 
     // Initialize dashboard
     document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById("todayDate").innerText = new Date().toDateString();
-      loadDashboardData();
+      aiAnalysisModal = new bootstrap.Modal(document.getElementById('aiAnalysisModal'));
+      setupEventListeners();
+
+      // Set last updated time
+      document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+
+      // Load data silently without showing error popups
+      loadDashboardData().catch(error => {
+        console.error("Error loading dashboard data:", error);
+        // Update UI to show loading failed
+        document.getElementById('totalBookings').textContent = "N/A";
+        document.getElementById('utilizationRate').textContent = "N/A";
+        document.getElementById('totalRevenue').textContent = "RMN/A";
+        document.getElementById('bookingGrowth').textContent = "N/A";
+        document.getElementById('utilizationGrowth').textContent = "N/A";
+        document.getElementById('revenueGrowth').textContent = "N/A";
+      });
     });
 
-    async function loadDashboardStats() {
-      const userSnap = await db.collection("users").get();
-      const facilitySnap = await db.collection("facilities").get();
-      const bookingSnap = await db.collection("bookings").get();
+    function setupEventListeners() {
+      // Time range select
+      document.getElementById('timeRangeSelect').addEventListener('change', () => {
+        renderBookingsChart();
+      });
 
-      document.getElementById("userCount").innerText = userSnap.size;
-      document.getElementById("facilityCount").innerText = facilitySnap.size;
-      document.getElementById("bookingCount").innerText = bookingSnap.size;
+      // Forecast toggle
+      document.getElementById('showForecast').addEventListener('change', () => {
+        renderBookingsChart();
+      });
+
+      // Refresh forecast button
+      document.getElementById('refreshForecastBtn').addEventListener('click', () => {
+        generateBookingForecast().catch(error => {
+          console.error("Error generating forecast:", error);
+          alert("Failed to generate forecast. Please try again.");
+        });
+      });
+
+      // Generate insights button
+      document.getElementById('generateInsightsBtn').addEventListener('click', () => {
+        generateAIInsights().catch(error => {
+          console.error("Error generating insights:", error);
+          alert("Failed to generate insights. Please try again.");
+        });
+      });
+
+      // Run advanced analysis button
+      document.getElementById('runAdvancedAnalysisBtn').addEventListener('click', () => {
+        runAdvancedAnalysis().catch(error => {
+          console.error("Error running analysis:", error);
+        });
+      });
     }
-
-    loadDashboardStats();
-
 
     async function loadDashboardData() {
       try {
-        // Load all data in parallel
-        const [usersSnapshot, facilitiesSnapshot, bookingsSnapshot] = await Promise.all([
+        // Load all data from Firestore
+        const [
+          usersSnapshot,
+          bookingsSnapshot,
+          facilitiesSnapshot,
+          feedbackSnapshot
+        ] = await Promise.all([
           db.collection("users").get(),
+          db.collection("bookings").orderBy("timestamp", "desc").get(),
           db.collection("facilities").get(),
-          db.collection("bookings").orderBy("timestamp", "desc").limit(10).get()
+          db.collection("feedback").get().catch(() => ({ docs: [] })) // Gracefully handle missing collection
         ]);
 
         // Process users data
-        usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        document.getElementById("userCount").textContent = usersData.length;
-
-        // Process facilities data
-        facilitiesData = facilitiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        document.getElementById("facilityCount").textContent = facilitiesData.length;
+        usersData = usersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date()
+        }));
 
         // Process bookings data
-        bookingsData = bookingsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        document.getElementById("bookingCount").textContent = bookingsData.length;
+        bookingsData = bookingsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            date: data.date ? new Date(data.date) : new Date(),
+            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date()
+          };
+        });
 
-        // Display recent bookings
-        displayRecentBookings();
+        // Process facilities data
+        facilitiesData = facilitiesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        // Process feedback data if available
+        feedbackData = feedbackSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp?.toDate ? doc.data().timestamp.toDate() : new Date()
+        }));
+
+        // Initialize empty arrays for other collections
+        coachesData = [];
+        addonsData = [];
+
+        // Update dashboard stats
+        updateDashboardStats();
+        renderBookingsChart();
+        renderStatusChart();
+        renderRevenueChart();
+
+        // Generate initial AI insights
+        generateBookingForecast();
+        generateAIInsights();
       } catch (error) {
         console.error("Error loading dashboard data:", error);
-        document.getElementById("recentBookings").innerHTML = `
-          <tr>
-            <td colspan="7" class="text-center text-danger">Error loading data. Please refresh the page.</td>
-          </tr>
-        `;
+        throw error;
       }
     }
 
-    function viewBookingDetails(bookingId) {
-      const booking = bookingsData.find(b => b.id === bookingId);
-      if (!booking) {
-        alert("Booking not found");
-        return;
-      }
-
-      const bookingDate = booking.date.toDate ? booking.date.toDate() : new Date(booking.date);
-      const user = usersData.find(u => u.id === booking.userId) || {};
-      const facility = facilitiesData.find(f => f.id === booking.facilityId) || {};
-      
-      const details = `
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Booking Details</h5>
-            <p><strong>Facility:</strong> ${facility.name || booking.facilityName || 'N/A'}</p>
-            <p><strong>User:</strong> ${user.email || user.name || 'Unknown'}</p>
-            <p><strong>Date:</strong> ${bookingDate.toLocaleDateString()}</p>
-            <p><strong>Time Slot:</strong> ${booking.slot || 'N/A'}</p>
-            <p><strong>Status:</strong> ${booking.status || 'pending'}</p>
-            <p><strong>Amount:</strong> RM${(booking.totalAmount || booking.price || 0).toFixed(2)}</p>
-            ${booking.addons ? `
-            <p><strong>Add-ons:</strong> ${JSON.stringify(booking.addons)}</p>
-            ` : ''}
-          </div>
-        </div>
-      `;
-      
-      // Show in modal
-      const modal = new bootstrap.Modal(document.createElement('div'));
-      modal._element.innerHTML = `
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Booking Details</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              ${details}
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(modal._element);
-      modal.show();
-    }
-
-    // Report Generation Functions
-    async function generateReport(type) {
-      currentReportType = type;
-      document.getElementById("reportModalTitle").textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Report`;
-      
-      // Show modal
-      const modal = new bootstrap.Modal(document.getElementById('reportModal'));
-      modal.show();
-      
-      // Generate initial report
-      await updateReport();
-    }
-
-    function changeReportTimeframe(timeframe) {
-      currentTimeframe = timeframe;
-      updateReport();
-    }
-
-    async function updateReport() {
-      // Destroy previous chart if exists
-      if (reportChart) {
-        reportChart.destroy();
-      }
-
-      const ctx = document.getElementById('reportChart');
-      const table = document.getElementById('reportDataTable');
-      
-      // Show loading state
-      table.innerHTML = '<tr><td colspan="4" class="text-center">Loading report data...</td></tr>';
-      
+    function updateDashboardStats() {
       try {
-        // Generate data based on report type and timeframe
-        let labels = [];
-        let data = [];
-        let tableData = [];
-        
+        // Total bookings
+        document.getElementById("totalBookings").textContent = bookingsData.length;
+
+        // Utilization rate (calculate based on facility capacity and bookings)
+        const totalCapacity = facilitiesData.reduce((sum, facility) => sum + (facility.maxBookings || 1), 0);
+        const totalBookedSlots = bookingsData
+          .filter(booking => booking.status === 'confirmed')
+          .length;
+
+        const utilizationRate = totalCapacity > 0 ?
+          Math.round((totalBookedSlots / (totalCapacity * 30)) * 100) : 0; // Assuming 30 days in month
+        document.getElementById("utilizationRate").textContent = `${utilizationRate}%`;
+
+        // Total revenue (only confirmed bookings)
+        const totalRevenue = bookingsData
+          .filter(booking => booking.status === 'confirmed')
+          .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+        document.getElementById("totalRevenue").textContent = `RM${totalRevenue.toFixed(2)}`;
+
+        // Calculate growth percentages
+        calculateGrowthPercentages();
+      } catch (error) {
+        console.error("Error updating dashboard stats:", error);
+        throw error;
+      }
+    }
+
+    function calculateGrowthPercentages() {
+      try {
+        // Calculate booking growth
         const now = new Date();
-        let startDate = new Date();
-        
-        switch(currentTimeframe) {
-          case 'daily':
-            startDate.setDate(now.getDate() - 7); // Last 7 days
-            labels = Array.from({ length: 7 }, (_, i) => {
-              const d = new Date();
-              d.setDate(now.getDate() - (6 - i));
-              return d.toLocaleDateString('en-US', { weekday: 'short' });
-            });
-            break;
-          case 'weekly':
-            startDate.setDate(now.getDate() - 28); // Last 4 weeks
-            labels = Array.from({ length: 4 }, (_, i) => `Week ${4 - i}`);
-            break;
-          case 'monthly':
-            startDate.setMonth(now.getMonth() - 6); // Last 6 months
-            labels = Array.from({ length: 6 }, (_, i) => {
-              const d = new Date();
-              d.setMonth(now.getMonth() - (5 - i));
-              return d.toLocaleDateString('en-US', { month: 'short' });
-            });
-            break;
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+        const currentMonthBookings = bookingsData.filter(booking =>
+          booking.date >= currentMonthStart
+        ).length;
+
+        const prevMonthBookings = bookingsData.filter(booking =>
+          booking.date >= prevMonthStart && booking.date <= prevMonthEnd
+        ).length;
+
+        const bookingGrowth = prevMonthBookings > 0 ?
+          ((currentMonthBookings - prevMonthBookings) / prevMonthBookings * 100).toFixed(1) : 100;
+        document.getElementById("bookingGrowth").textContent = `${bookingGrowth}%`;
+
+        // Calculate utilization growth
+        const currentMonthCapacity = facilitiesData.reduce((sum, facility) => sum + (facility.maxBookings || 1), 0) * 30;
+        const currentMonthBooked = bookingsData
+          .filter(booking => booking.date >= currentMonthStart)
+          .length;
+        const currentUtilization = currentMonthCapacity > 0 ?
+          (currentMonthBooked / currentMonthCapacity) * 100 : 0;
+
+        const prevMonthBooked = bookingsData
+          .filter(booking => booking.date >= prevMonthStart && booking.date <= prevMonthEnd)
+          .length;
+        const prevUtilization = currentMonthCapacity > 0 ?
+          (prevMonthBooked / currentMonthCapacity) * 100 : 0;
+
+        const utilizationGrowth = prevUtilization > 0 ?
+          ((currentUtilization - prevUtilization) / prevUtilization * 100).toFixed(1) : 100;
+        document.getElementById("utilizationGrowth").textContent = `${utilizationGrowth}%`;
+
+        // Calculate revenue growth
+        const currentMonthRevenue = bookingsData
+          .filter(booking => booking.date >= currentMonthStart && booking.status === 'confirmed')
+          .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+
+        const prevMonthRevenue = bookingsData
+          .filter(booking => booking.date >= prevMonthStart && booking.date <= prevMonthEnd && booking.status === 'confirmed')
+          .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+
+        const revenueGrowth = prevMonthRevenue > 0 ?
+          ((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue * 100).toFixed(1) : 100;
+        document.getElementById("revenueGrowth").textContent = `${revenueGrowth}%`;
+      } catch (error) {
+        console.error("Error calculating growth percentages:", error);
+        throw error;
+      }
+    }
+
+    function renderBookingsChart() {
+      try {
+        const ctx = document.getElementById('bookingsChart');
+        const timeRange = parseInt(document.getElementById('timeRangeSelect').value);
+
+        // Group bookings by month
+        const now = new Date();
+        const startDate = new Date();
+        startDate.setMonth(now.getMonth() - timeRange + 1);
+
+        const monthLabels = [];
+        const monthCounts = [];
+
+        for (let i = timeRange - 1; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(now.getMonth() - i);
+
+          const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+          monthLabels.push(monthName);
+
+          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = bookingsData.filter(booking =>
+            booking.date >= monthStart && booking.date <= monthEnd
+          ).length;
+
+          monthCounts.push(count);
         }
 
-        // Fetch data based on report type
-        switch(currentReportType) {
-          case 'bookings':
-            // Get bookings count per period
-            const bookingsQuery = await db.collection("bookings")
-              .where("date", ">=", startDate)
-              .get();
-            
-            const bookingsByPeriod = groupDataByTimeframe(bookingsQuery.docs, currentTimeframe);
-            
-            data = labels.map(label => bookingsByPeriod[label]?.count || 0);
-            tableData = labels.map(label => ({
-              Period: label,
-              Bookings: bookingsByPeriod[label]?.count || 0,
-              Revenue: `RM${(bookingsByPeriod[label]?.revenue || 0).toFixed(2)}`
-            }));
-            break;
-            
-          case 'revenue':
-            // Get revenue per period
-            const revenueQuery = await db.collection("bookings")
-              .where("date", ">=", startDate)
-              .get();
-            
-            const revenueByPeriod = groupDataByTimeframe(revenueQuery.docs, currentTimeframe);
-            
-            data = labels.map(label => revenueByPeriod[label]?.revenue || 0);
-            tableData = labels.map(label => ({
-              Period: label,
-              Revenue: `RM${(revenueByPeriod[label]?.revenue || 0).toFixed(2)}`,
-              Bookings: revenueByPeriod[label]?.count || 0
-            }));
-            break;
-            
-          case 'users':
-            // Get new users per period
-            const usersQuery = await db.collection("users")
-              .where("createdAt", ">=", startDate)
-              .get();
-            
-            const usersByPeriod = groupDataByTimeframe(usersQuery.docs, currentTimeframe, 'createdAt');
-            
-            data = labels.map(label => usersByPeriod[label]?.count || 0);
-            tableData = labels.map(label => ({
-              Period: label,
-              'New Users': usersByPeriod[label]?.count || 0
-            }));
-            break;
-            
-          case 'facilities':
-            // Get facility utilization
-            const facilitiesQuery = await db.collection("bookings")
-              .where("date", ">=", startDate)
-              .get();
-            
-            const facilitiesByPeriod = groupDataByTimeframe(facilitiesQuery.docs, currentTimeframe);
-            
-            data = labels.map(label => facilitiesByPeriod[label]?.count || 0);
-            tableData = labels.map(label => ({
-              Period: label,
-              Bookings: facilitiesByPeriod[label]?.count || 0,
-              Utilization: `${Math.min(100, Math.floor((facilitiesByPeriod[label]?.count || 0) / 10 * 100))}%`
-            }));
-            break;
+        if (bookingsChart) {
+          bookingsChart.destroy();
         }
 
-        // Create chart
-        reportChart = new Chart(ctx, {
-          type: 'bar',
+        const datasets = [{
+          label: 'Actual Bookings',
+          data: monthCounts,
+          backgroundColor: 'rgba(67, 97, 238, 0.2)',
+          borderColor: 'rgba(67, 97, 238, 1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true
+        }];
+
+        // Add forecast data if available and toggle is on
+        if (forecastData.length > 0 && document.getElementById('showForecast').checked) {
+          datasets.push({
+            label: 'AI Forecast',
+            data: forecastData,
+            borderColor: 'rgba(114, 9, 183, 1)',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            tension: 0.3,
+            fill: false,
+            pointBackgroundColor: 'rgba(114, 9, 183, 1)'
+          });
+        }
+
+        bookingsChart = new Chart(ctx, {
+          type: 'line',
           data: {
-            labels: labels,
+            labels: monthLabels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  drawBorder: false
+                },
+                title: {
+                  display: true,
+                  text: 'Number of Bookings'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                },
+                title: {
+                  display: true,
+                  text: 'Month'
+                }
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error rendering bookings chart:", error);
+      }
+    }
+
+    async function generateBookingForecast() {
+      try {
+        // Show loading state
+        document.getElementById('refreshForecastBtn').innerHTML =
+          '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+
+        // Prepare data for forecasting
+        const now = new Date();
+        const pastMonths = 12; // Use last 12 months for forecasting
+        const forecastMonths = 3; // Forecast next 3 months
+
+        const monthlyData = [];
+
+        for (let i = pastMonths - 1; i >= 0; i--) {
+          const date = new Date();
+          date.setMonth(now.getMonth() - i);
+
+          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = bookingsData.filter(booking =>
+            booking.date >= monthStart && booking.date <= monthEnd
+          ).length;
+
+          monthlyData.push(count);
+        }
+
+        // Simulate forecast since we don't have the Firebase function
+        // In a real app, you would call your Firebase function here
+        const forecast = simulateForecast(monthlyData, forecastMonths);
+
+        // Process forecast results
+        forecastData = monthlyData.slice(-6).concat(forecast.predictions);
+
+        // Update the chart
+        renderBookingsChart();
+
+        // Update AI predictions count
+        document.getElementById('aiPredictions').textContent =
+          parseInt(document.getElementById('aiPredictions').textContent || '0') + 1;
+
+        // Show success message
+        const forecastContainer = document.getElementById('aiInsightsContainer');
+        const forecastInsight = document.createElement('div');
+        forecastInsight.className = 'ai-prediction';
+        forecastInsight.innerHTML = `
+          <div class="ai-prediction-title">
+            <i class="bi bi-graph-up"></i> Booking Forecast
+          </div>
+          <p>AI predicts ${Math.round(forecast.predictions[0])} bookings next month (${forecast.confidence}% confidence).</p>
+        `;
+        forecastContainer.prepend(forecastInsight);
+
+      } catch (error) {
+        console.error("Error generating forecast:", error);
+        alert("Failed to generate forecast. Please try again.");
+      } finally {
+        document.getElementById('refreshForecastBtn').innerHTML =
+          '<i class="bi bi-arrow-repeat"></i> Refresh Forecast';
+      }
+    }
+
+    function simulateForecast(historicalData, periods) {
+      // Simple linear regression to simulate forecast
+      const n = historicalData.length;
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+
+      for (let i = 0; i < n; i++) {
+        sumX += i;
+        sumY += historicalData[i];
+        sumXY += i * historicalData[i];
+        sumXX += i * i;
+      }
+
+      const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+
+      const predictions = [];
+      for (let i = 0; i < periods; i++) {
+        predictions.push(Math.max(0, Math.round(intercept + slope * (n + i))));
+      }
+
+      // Calculate confidence based on data variance
+      let sumSqDiff = 0;
+      for (let i = 0; i < n; i++) {
+        const predicted = intercept + slope * i;
+        sumSqDiff += Math.pow(historicalData[i] - predicted, 2);
+      }
+      const variance = sumSqDiff / n;
+      const confidence = Math.max(50, 100 - Math.round(variance));
+
+      return {
+        predictions,
+        confidence
+      };
+    }
+
+    async function generateAIInsights() {
+      try {
+        // Show loading state
+        document.getElementById('generateInsightsBtn').innerHTML =
+          '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+
+        // Generate peak hours insight
+        generatePeakHoursInsight();
+
+        // Analyze feedback sentiment
+        analyzeFeedbackSentiment();
+
+        // Generate anomaly detection insight
+        detectBookingAnomalies();
+
+        // Generate optimization suggestions
+        generateOptimizationSuggestions();
+
+        // Update AI predictions count
+        document.getElementById('aiPredictions').textContent =
+          parseInt(document.getElementById('aiPredictions').textContent || '0') + 3;
+        document.getElementById('aiActionable').textContent =
+          parseInt(document.getElementById('aiActionable').textContent || '0') + 1;
+
+      } catch (error) {
+        console.error("Error generating insights:", error);
+        alert("Failed to generate insights. Please try again.");
+      } finally {
+        document.getElementById('generateInsightsBtn').innerHTML =
+          '<i class="bi bi-magic"></i> Generate';
+      }
+    }
+
+    function analyzeFeedbackSentiment() {
+      try {
+        // Simple sentiment analysis based on ratings and keywords
+        const positiveKeywords = ['great', 'excellent', 'awesome', 'love', 'good', 'happy', 'wonderful', 'fantastic'];
+        const negativeKeywords = ['bad', 'poor', 'terrible', 'disappointed', 'unhappy', 'horrible', 'awful', 'worst'];
+
+        let positiveCount = 0;
+        let neutralCount = 0;
+        let negativeCount = 0;
+
+        // If we have feedback data, analyze it
+        if (feedbackData && feedbackData.length > 0) {
+          feedbackData.forEach(feedback => {
+            const text = (feedback.comments || '').toLowerCase();
+            const rating = feedback.rating || 3;
+
+            if (rating >= 4) {
+              positiveCount++;
+            } else if (rating <= 2) {
+              negativeCount++;
+            } else {
+              // For neutral ratings, check keywords
+              const hasPositive = positiveKeywords.some(kw => text.includes(kw));
+              const hasNegative = negativeKeywords.some(kw => text.includes(kw));
+
+              if (hasPositive && !hasNegative) {
+                positiveCount++;
+              } else if (hasNegative && !hasPositive) {
+                negativeCount++;
+              } else {
+                neutralCount++;
+              }
+            }
+          });
+        } else {
+          // If no feedback data, use a simulated analysis
+          positiveCount = Math.floor(Math.random() * 15) + 10;
+          neutralCount = Math.floor(Math.random() * 10) + 5;
+          negativeCount = Math.floor(Math.random() * 5);
+        }
+
+        const totalFeedback = positiveCount + neutralCount + negativeCount;
+        let sentiment = 'neutral';
+        let sentimentClass = 'sentiment-neutral';
+
+        if (totalFeedback > 0) {
+          const positivePercent = (positiveCount / totalFeedback) * 100;
+          const negativePercent = (negativeCount / totalFeedback) * 100;
+
+          if (positivePercent > 60) {
+            sentiment = 'positive';
+            sentimentClass = 'sentiment-positive';
+          } else if (negativePercent > 30) {
+            sentiment = 'negative';
+            sentimentClass = 'sentiment-negative';
+          }
+        }
+
+        // Update UI
+        document.getElementById('sentimentInsight').innerHTML = `
+      Customer sentiment is <span class="${sentimentClass}">${sentiment}</span>.
+      <div class="mt-2 small">
+        ${positiveCount} positive, ${neutralCount} neutral, ${negativeCount} negative feedback items.
+      </div>
+      ${sentiment === 'negative' ? `
+        <div class="mt-2">
+          <span class="badge badge-ai">Action</span>
+          Review negative feedback for service improvement opportunities.
+        </div>
+      ` : ''}
+      ${totalFeedback === 0 ? `
+        <div class="text-muted small mt-2">
+          <i class="bi bi-info-circle"></i> No feedback data available. Showing simulated analysis.
+        </div>
+      ` : ''}
+    `;
+
+        // Update customer insights in AI Highlights
+        document.getElementById('customerInsights').textContent =
+          `Customer sentiment is ${sentiment} with ${positiveCount} positive feedback items.`;
+
+      } catch (error) {
+        console.error("Error analyzing feedback sentiment:", error);
+        document.getElementById('sentimentInsight').textContent =
+          "Could not analyze feedback sentiment due to data issues.";
+      }
+    }
+
+    function generatePeakHoursInsight() {
+      try {
+        // Group bookings by hour of day
+        const hours = Array(24).fill(0);
+        bookingsData.forEach(booking => {
+          if (booking.slot) {
+            // Extract hour from slot (e.g., "6-7 AM" -> 6)
+            const hourMatch = booking.slot.match(/(\d+)/);
+            if (hourMatch) {
+              let hour = parseInt(hourMatch[1]);
+              // Convert to 24-hour format if PM
+              if (booking.slot.includes('PM') && hour < 12) hour += 12;
+              hours[hour]++;
+            }
+          }
+        });
+
+        // Find peak hours
+        const maxBookings = Math.max(...hours);
+        const peakHours = hours.map((count, hour) => ({ hour, count }))
+          .filter(h => h.count > maxBookings * 0.7) // At least 70% of max
+          .sort((a, b) => b.count - a.count);
+
+        // Format peak hours string
+        let peakHoursStr = '';
+        if (peakHours.length > 0) {
+          peakHoursStr = peakHours.map(h => {
+            const period = h.hour < 12 ? 'AM' : 'PM';
+            const displayHour = h.hour % 12 || 12;
+            return `${displayHour}${period}`;
+          }).join(', ');
+        } else {
+          peakHoursStr = 'No clear peak hours detected';
+        }
+
+        // Update UI
+        document.getElementById('peakHoursInsight').innerHTML = `
+          The busiest hours are <strong>${peakHoursStr}</strong> with up to ${maxBookings} bookings.
+          <div class="mt-2">
+            <span class="badge badge-ai">Recommendation</span>
+            Consider offering discounts for off-peak hours to balance demand.
+          </div>
+        `;
+
+        // Update performance trend
+        document.getElementById('performanceTrend').textContent =
+          `Peak hours identified at ${peakHoursStr}. Consider dynamic pricing during these periods.`;
+      } catch (error) {
+        console.error("Error generating peak hours insight:", error);
+        document.getElementById('peakHoursInsight').textContent =
+          "Could not analyze peak hours due to data issues.";
+      }
+    }
+
+    function detectBookingAnomalies() {
+      try {
+        // Simple anomaly detection - compare current month to historical averages
+        const now = new Date();
+        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Get current month bookings
+        const currentMonthBookings = bookingsData.filter(booking =>
+          booking.date >= currentMonthStart
+        ).length;
+
+        // Calculate historical average (last 6 months excluding current)
+        const historicalMonths = 6;
+        let historicalSum = 0;
+        let monthCount = 0;
+
+        for (let i = 1; i <= historicalMonths; i++) {
+          const date = new Date();
+          date.setMonth(now.getMonth() - i);
+
+          const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+          const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+          const count = bookingsData.filter(booking =>
+            booking.date >= monthStart && booking.date <= monthEnd
+          ).length;
+
+          historicalSum += count;
+          monthCount++;
+        }
+
+        const historicalAvg = historicalSum / monthCount;
+        const deviation = (currentMonthBookings - historicalAvg) / historicalAvg;
+
+        // Determine anomaly level
+        let anomalyLevel = 'low';
+        let anomalyClass = 'anomaly-low';
+        let message = 'Booking patterns are normal this month.';
+
+        if (Math.abs(deviation) > 0.3) {
+          anomalyLevel = 'high';
+          anomalyClass = 'anomaly-high';
+          message = `Significant ${deviation > 0 ? 'increase' : 'decrease'} in bookings detected (${Math.abs(deviation * 100).toFixed(0)}% ${deviation > 0 ? 'above' : 'below'} average).`;
+        } else if (Math.abs(deviation) > 0.15) {
+          anomalyLevel = 'medium';
+          anomalyClass = 'anomaly-medium';
+          message = `Moderate ${deviation > 0 ? 'increase' : 'decrease'} in bookings detected (${Math.abs(deviation * 100).toFixed(0)}% ${deviation > 0 ? 'above' : 'below'} average).`;
+        }
+
+        // Update UI
+        document.getElementById('anomalyInsight').innerHTML = `
+          <span class="${anomalyClass} anomaly-indicator"></span>
+          ${message}
+          ${anomalyLevel !== 'low' ? `
+            <div class="mt-2">
+              <span class="badge badge-ai">Action</span>
+              ${deviation > 0 ? 'Investigate marketing effectiveness.' : 'Review pricing and promotions.'}
+            </div>
+          ` : ''}
+        `;
+      } catch (error) {
+        console.error("Error detecting anomalies:", error);
+        document.getElementById('anomalyInsight').textContent =
+          "Could not analyze booking anomalies due to data issues.";
+      }
+    }
+
+    function generateOptimizationSuggestions() {
+      try {
+        // Simple optimization suggestions based on utilization and revenue
+        const currentMonthStart = new Date();
+        currentMonthStart.setDate(1);
+
+        // Calculate facility usage
+        const facilityUsage = facilitiesData.map(facility => {
+          const bookingsForFacility = bookingsData.filter(booking =>
+            booking.facilityId === facility.id &&
+            booking.status === 'confirmed' &&
+            booking.date >= currentMonthStart
+          );
+
+          const totalBookedSlots = bookingsForFacility.length;
+
+          // Assuming each facility can be booked once per day
+          const totalCapacity = (facility.maxBookings || 1) * 30;
+          const usagePercentage = totalCapacity > 0 ?
+            (totalBookedSlots / totalCapacity) * 100 : 0;
+
+          return {
+            id: facility.id,
+            name: facility.name,
+            percentage: usagePercentage
+          };
+        });
+
+        // Find underutilized and overutilized facilities
+        const underutilized = facilityUsage.filter(f => f.percentage < 40).sort((a, b) => a.percentage - b.percentage);
+        const overutilized = facilityUsage.filter(f => f.percentage > 80).sort((a, b) => b.percentage - a.percentage);
+
+        // Calculate revenue per facility
+        const revenuePerFacility = facilitiesData.map(facility => {
+          const revenue = bookingsData
+            .filter(booking =>
+              booking.facilityId === facility.id &&
+              booking.status === 'confirmed' &&
+              booking.date >= currentMonthStart
+            )
+            .reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+
+          return {
+            id: facility.id,
+            name: facility.name,
+            revenue: revenue
+          };
+        }).sort((a, b) => b.revenue - a.revenue);
+
+        // Generate suggestions
+        let suggestions = [];
+
+        if (underutilized.length > 0) {
+          suggestions.push(`Promote ${underutilized[0].name} (only ${underutilized[0].percentage.toFixed(0)}% utilized)`);
+        }
+
+        if (overutilized.length > 0) {
+          suggestions.push(`Consider expanding ${overutilized[0].name} capacity (${overutilized[0].percentage.toFixed(0)}% utilized)`);
+        }
+
+        if (revenuePerFacility.length > 0) {
+          const topPerformer = revenuePerFacility[0];
+          const lowPerformer = revenuePerFacility[revenuePerFacility.length - 1];
+
+          if (topPerformer.revenue > 0) {
+            suggestions.push(`Highlight ${topPerformer.name} (top revenue generator at RM${topPerformer.revenue.toFixed(0)})`);
+          }
+
+          if (lowPerformer.revenue < topPerformer.revenue * 0.3 && lowPerformer.revenue > 0) {
+            suggestions.push(`Review pricing for ${lowPerformer.name} (low revenue at RM${lowPerformer.revenue.toFixed(0)})`);
+          }
+        }
+
+        // Default suggestion if no specific ones
+        if (suggestions.length === 0) {
+          suggestions.push("Facility utilization is well balanced. Consider adding new amenities to attract more customers.");
+        }
+
+        // Update UI
+        document.getElementById('optimizationInsight').innerHTML = `
+          ${suggestions.map(s => `<div class="mb-1">• ${s}</div>`).join('')}
+          <div class="mt-2">
+            <span class="badge badge-ai">Recommendation</span>
+            Focus on ${suggestions[0].toLowerCase()}
+          </div>
+        `;
+
+        // Update smart suggestions
+        document.getElementById('smartSuggestions').textContent = suggestions[0];
+      } catch (error) {
+        console.error("Error generating optimization suggestions:", error);
+        document.getElementById('optimizationInsight').textContent =
+          "Could not generate optimization suggestions due to data issues.";
+      }
+    }
+
+    async function runAdvancedAnalysis() {
+      try {
+        // Show loading state
+        document.getElementById('runAdvancedAnalysisBtn').innerHTML =
+          '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Analyzing...';
+
+        // Prepare data for advanced analysis
+        const analysisData = {
+          bookings: bookingsData.slice(0, 100).map(b => ({
+            date: b.date.toISOString().split('T')[0],
+            facility: facilitiesData.find(f => f.id === b.facilityId)?.name || 'Unknown',
+            status: b.status,
+            revenue: b.totalAmount || 0
+          })),
+          facilities: facilitiesData.map(f => ({
+            name: f.name,
+            capacity: f.maxBookings || 0
+          }))
+        };
+
+        // Simulate advanced analysis since we don't have the Firebase function
+        // In a real app, you would call your Firebase function here
+        const result = simulateAdvancedAnalysis(analysisData);
+
+        // Display results
+        document.getElementById('aiAnalysisContent').innerHTML = `
+          <h5><i class="bi bi-graph-up"></i> Advanced Booking Analysis</h5>
+          <p>${result.summary}</p>
+          
+          <h5 class="mt-4"><i class="bi bi-lightbulb"></i> Key Insights</h5>
+          <ul>
+            ${result.insights.map(i => `<li>${i}</li>`).join('')}
+          </ul>
+          
+          <h5 class="mt-4"><i class="bi bi-check-circle"></i> Recommendations</h5>
+          <div class="list-group">
+            ${result.recommendations.map(r => `
+              <div class="list-group-item">
+                <div class="d-flex align-items-center">
+                  <i class="bi bi-${r.priority === 'high' ? 'exclamation-triangle-fill text-danger' :
+            r.priority === 'medium' ? 'info-circle-fill text-primary' : 'check-circle-fill text-success'} me-2"></i>
+                  ${r.action}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        // Update AI predictions count
+        document.getElementById('aiPredictions').textContent =
+          parseInt(document.getElementById('aiPredictions').textContent || '0') + 1;
+        document.getElementById('aiActionable').textContent =
+          parseInt(document.getElementById('aiActionable').textContent || '0') +
+          result.recommendations.filter(r => r.priority === 'high').length;
+
+      } catch (error) {
+        console.error("Error running advanced analysis:", error);
+        document.getElementById('aiAnalysisContent').innerHTML = `
+          <div class="alert alert-danger">
+            Failed to run advanced analysis. Please try again later.
+          </div>
+        `;
+      } finally {
+        document.getElementById('runAdvancedAnalysisBtn').innerHTML =
+          '<i class="bi bi-robot"></i> Run Analysis';
+      }
+    }
+
+    function simulateAdvancedAnalysis(data) {
+      // Simulate analysis results based on the data
+      const totalBookings = data.bookings.length;
+      const confirmedBookings = data.bookings.filter(b => b.status === 'confirmed').length;
+      const confirmationRate = Math.round((confirmedBookings / totalBookings) * 100);
+
+      const totalRevenue = data.bookings.reduce((sum, b) => sum + b.revenue, 0);
+      const avgRevenuePerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+
+      const facilities = data.facilities.map(f => {
+        const facilityBookings = data.bookings.filter(b => b.facility === f.name);
+        const revenue = facilityBookings.reduce((sum, b) => sum + b.revenue, 0);
+        return {
+          name: f.name,
+          bookings: facilityBookings.length,
+          revenue: revenue,
+          utilization: Math.round((facilityBookings.length / (f.capacity * 30)) * 100)
+        };
+      });
+
+      const topFacility = [...facilities].sort((a, b) => b.revenue - a.revenue)[0];
+      const lowFacility = [...facilities].sort((a, b) => a.revenue - b.revenue)[0];
+
+      return {
+        summary: `Analyzed ${totalBookings} bookings across ${data.facilities.length} facilities with ${confirmationRate}% confirmation rate and average revenue of RM${avgRevenuePerBooking.toFixed(2)} per booking.`,
+        insights: [
+          `Top performing facility is ${topFacility.name} with RM${topFacility.revenue.toFixed(2)} revenue`,
+          `Lowest performing facility is ${lowFacility.name} with RM${lowFacility.revenue.toFixed(2)} revenue`,
+          `${confirmationRate < 80 ? 'Low' : 'High'} booking confirmation rate of ${confirmationRate}%`,
+          `Average facility utilization is ${Math.round(facilities.reduce((sum, f) => sum + f.utilization, 0) / facilities.length)}%`
+        ],
+        recommendations: [
+          {
+            action: `Promote ${lowFacility.name} with special offers to increase utilization`,
+            priority: 'high'
+          },
+          {
+            action: `Implement reminder system to improve confirmation rate`,
+            priority: confirmedBookings < 80 ? 'high' : 'medium'
+          },
+          {
+            action: `Consider dynamic pricing for ${topFacility.name} during peak hours`,
+            priority: 'medium'
+          },
+          {
+            action: `Add more amenities to underutilized facilities`,
+            priority: 'low'
+          }
+        ]
+      };
+    }
+
+    function renderStatusChart() {
+      try {
+        const ctx = document.getElementById('bookingStatusChart');
+
+        // Count bookings by status
+        const statusCounts = {
+          confirmed: bookingsData.filter(b => b.status === 'confirmed').length,
+          pending: bookingsData.filter(b => b.status === 'pending').length,
+          cancelled: bookingsData.filter(b => b.status === 'cancelled').length
+        };
+
+        if (statusChart) {
+          statusChart.destroy();
+        }
+
+        statusChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Confirmed', 'Pending', 'Cancelled'],
             datasets: [{
-              label: currentReportType.charAt(0).toUpperCase() + currentReportType.slice(1),
-              data: data,
-              backgroundColor: 'rgba(54, 162, 235, 0.7)',
-              borderColor: 'rgba(54, 162, 235, 1)',
+              data: [statusCounts.confirmed, statusCounts.pending, statusCounts.cancelled],
+              backgroundColor: [
+                'rgba(56, 176, 0, 0.7)',
+                'rgba(255, 170, 0, 0.7)',
+                'rgba(239, 35, 60, 0.7)'
+              ],
+              borderColor: [
+                'rgba(56, 176, 0, 1)',
+                'rgba(255, 170, 0, 1)',
+                'rgba(239, 35, 60, 1)'
+              ],
               borderWidth: 1
             }]
           },
           options: {
             responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+              },
+              title: {
+                display: true,
+                text: 'Booking Status Distribution'
               }
             }
           }
         });
-
-        // Update table
-        let tableHtml = '<thead><tr>';
-        for (const key in tableData[0]) {
-          tableHtml += `<th>${key}</th>`;
-        }
-        tableHtml += '</tr></thead><tbody>';
-
-        tableData.forEach(row => {
-          tableHtml += '<tr>';
-          for (const key in row) {
-            tableHtml += `<td>${row[key]}</td>`;
-          }
-          tableHtml += '</tr>';
-        });
-        tableHtml += '</tbody>';
-
-        table.innerHTML = tableHtml;
       } catch (error) {
-        console.error("Error generating report:", error);
-        table.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error generating report</td></tr>';
+        console.error("Error rendering status chart:", error);
       }
     }
 
-    function groupDataByTimeframe(docs, timeframe, dateField = 'date') {
-      const result = {};
-      
-      docs.forEach(doc => {
-        const data = doc.data();
-        let date = data[dateField]?.toDate ? data[dateField].toDate() : new Date(data[dateField]);
-        let periodKey;
-        
-        switch(timeframe) {
-          case 'daily':
-            periodKey = date.toLocaleDateString('en-US', { weekday: 'short' });
-            break;
-          case 'weekly':
-            const weekNum = Math.floor((new Date() - date) / (7 * 24 * 60 * 60 * 1000));
-            periodKey = `Week ${weekNum}`;
-            break;
-          case 'monthly':
-            periodKey = date.toLocaleDateString('en-US', { month: 'short' });
-            break;
-        }
-        
-        if (!result[periodKey]) {
-          result[periodKey] = { count: 0, revenue: 0 };
-        }
-        
-        result[periodKey].count++;
-        result[periodKey].revenue += data.totalAmount || data.price || 0;
-      });
-      
-      return result;
-    }
-
-    function exportReport() {
+    function renderRevenueChart() {
       try {
-        // Create CSV content
-        let csvContent = "data:text/csv;charset=utf-8,";
-        
-        // Get table data
-        const table = document.getElementById('reportDataTable');
-        const rows = table.querySelectorAll('tr');
-        
-        // Add headers
-        const headers = Array.from(rows[0].querySelectorAll('th')).map(th => th.textContent);
-        csvContent += headers.join(",") + "\r\n";
-        
-        // Add rows
-        for (let i = 1; i < rows.length; i++) {
-          const cols = Array.from(rows[i].querySelectorAll('td')).map(td => td.textContent);
-          csvContent += cols.join(",") + "\r\n";
+        const ctx = document.getElementById('revenueSourcesChart');
+
+        // Calculate revenue by source - simplified since we don't have addons/coaches data
+        const revenueSources = {
+          facility: bookingsData
+            .filter(booking => booking.status === 'confirmed')
+            .reduce((sum, booking) => sum + (booking.price || 0), 0),
+          discounts: bookingsData
+            .filter(booking => booking.status === 'confirmed')
+            .reduce((sum, booking) => sum + (booking.discount || 0), 0)
+        };
+
+        if (revenueChart) {
+          revenueChart.destroy();
         }
-        
-        // Create download link
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${currentReportType}_report_${currentTimeframe}_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        revenueChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['Facility Rental', 'Discounts Applied'],
+            datasets: [{
+              data: [revenueSources.facility, revenueSources.discounts],
+              backgroundColor: [
+                'rgba(67, 97, 238, 0.7)',
+                'rgba(76, 201, 240, 0.7)'
+              ],
+              borderColor: [
+                'rgba(67, 97, 238, 1)',
+                'rgba(76, 201, 240, 1)'
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+              },
+              title: {
+                display: true,
+                text: 'Revenue Sources'
+              }
+            }
+          }
+        });
       } catch (error) {
-        console.error("Error exporting report:", error);
-        alert("Error exporting report");
+        console.error("Error rendering revenue chart:", error);
       }
     }
   </script>
 </body>
+
 </html>

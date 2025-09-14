@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Dashboard | NSTE</title>
+  <title>Admin Dashboard | Sportova</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
     body {
@@ -116,20 +116,14 @@
       display: flex;
       flex-direction: column;
       line-height: 1.2;
-      /* Tightens the spacing between elements */
     }
 
     .slogan {
       font-size: 0.65em;
-      /* About 40% smaller than main text */
       font-weight: 400;
-      /* Normal weight (not bold) */
       color: var(--primary-color, #ffffff);
-      /* Uses your variable with fallback */
       opacity: 0.8;
-      /* Slightly transparent */
       margin-top: 2px;
-      /* Small gap between name and slogan */
     }
 
     .home-link {
@@ -164,6 +158,8 @@
         <a href="dashboard.html" target="contentFrame">🏠 Dashboard</a>
         <a href="create-facility.html" target="contentFrame">➕ Create Facility</a>
         <a href="admin-booking-management.html" target="contentFrame">📅 Booking Management</a>
+        <a href="admin-manage-users.html" target="contentFrame">👤 Manage Users</a>
+        <a href="admin-manage-coach.html" target="contentFrame">⛹️‍♂️ Manage Coach/Trainer</a>
       </div>
 
       <div class="website-logo">
@@ -193,6 +189,9 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Track if we're already logging out to prevent duplicate calls
+    let isLoggingOut = false;
+
     auth.onAuthStateChanged(user => {
       if (user) {
         document.getElementById("adminName").textContent = user.displayName || "Admin";
@@ -208,10 +207,70 @@
     });
 
     function logout() {
+      if (isLoggingOut) return;
+      isLoggingOut = true;
+      
       auth.signOut().then(() => {
+        window.location.href = "login.html";
+      }).catch((error) => {
+        console.error("Logout error:", error);
         window.location.href = "login.html";
       });
     }
+
+    // Handle page/tab close
+    window.addEventListener('beforeunload', (event) => {
+      // Only attempt logout if user is authenticated
+      if (auth.currentUser && !isLoggingOut) {
+        // Use sendBeacon if available for more reliable logout
+        if (navigator.sendBeacon) {
+          const data = new Blob(
+            [JSON.stringify({ uid: auth.currentUser.uid })],
+            { type: 'application/json' }
+          );
+          
+          // This won't actually call your Firebase logout, but you could
+          // set up an endpoint on your server to handle this if needed
+          // For now, we'll rely on the unload event below
+        }
+      }
+    });
+
+    // More reliable logout on page unload
+    window.addEventListener('unload', () => {
+      if (auth.currentUser && !isLoggingOut) {
+        // Use synchronous XHR to perform logout
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/logoutendpoint', false); // false makes it synchronous
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        
+        try {
+          xhr.send(JSON.stringify({ 
+            uid: auth.currentUser.uid,
+            // Include any other data needed for server-side logout
+          }));
+        } catch (e) {
+          // Ignore errors as the page is unloading
+        }
+        
+        // Also attempt Firebase logout directly
+        try {
+          auth.signOut();
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+    });
+
+    // Alternative approach: Use Page Visibility API to detect tab changes
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden') {
+        // Tab is now hidden - user might have switched tabs or minimized browser
+        // We could set a timer to logout after a period of inactivity
+      } else {
+        // Tab is visible again
+      }
+    });
   </script>
 </body>
 

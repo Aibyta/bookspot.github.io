@@ -723,12 +723,6 @@
       { id: 104, name: "Tennis Shoes", price: 20, image: "https://m.media-amazon.com/images/I/71GQz9Vk2LL._AC_UF1000,1000_QL80_.jpg" }
     ];
 
-    const coachesData = [
-      { id: 1, name: "Coach Alex", price: 50, image: "https://cdn.sanity.io/images/1oknuwv8/production/cc88b7a952bbddfd5828b6dc28deee2619bcab75-2000x1334.webp?rect=0,138,2000,1058&w=1200&h=635&fit=crop&auto=format", experience: "5 years", rating: 4.8 },
-      { id: 2, name: "Coach Maria", price: 60, image: "https://dbukjj6eu5tsf.cloudfront.net/sidearm.sites/csufullerton.sidearmsports.com/images/2025/1/13/Ellie_Johnson_HS.jpg?width=300", experience: "7 years", rating: 4.9 },
-      { id: 3, name: "Coach Sam", price: 45, image: "https://fitintennis.com/wp-content/uploads/2020/04/Javier-professional-tennis-coach-in-Barcelona.jpg", experience: "3 years", rating: 4.5 }
-    ];
-
     $(document).ready(function () {
       // Initialize Select2 for multiple select
       $('#inviteFriends').select2();
@@ -1594,7 +1588,34 @@
       $('#addonsTotal').text(total.toFixed(2));
     }
 
-    function showCoachesSelection() {
+     async function fetchCoachesFromFirestore() {
+      try {
+        const snapshot = await db.collection('coaches').get();
+        const coaches = [];
+        
+        snapshot.forEach(doc => {
+          const coachData = doc.data();
+          coaches.push({
+            id: doc.id,
+            name: coachData.name,
+            price: coachData.price,
+            image: coachData.profile,
+            experience: coachData.experience || "N/A",
+            rating: coachData.rating || 4.5,
+            availability: coachData.availability || "",
+            highlights: coachData.highlights || "",
+            facilityId: coachData.facilityId || ""
+          });
+        });
+        
+        return coaches;
+      } catch (error) {
+        console.error("Error fetching coaches:", error);
+        return [];
+      }
+    }
+
+    async function showCoachesSelection() {
       $('#floatingCoachBtn').addClass('d-none');
       
       // Reset discount when showing coaches
@@ -1624,41 +1645,107 @@
         </div>
       `);
 
-      // Add coach options
-      coachesData.forEach(coach => {
+      try {
+        // Show loading state
+        $('#coachesList').append(`
+          <div class="col-12 text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading coaches...</span>
+            </div>
+            <p class="mt-2">Loading available coaches...</p>
+          </div>
+        `);
+
+        // Fetch coaches from Firestore
+        const coachesData = await fetchCoachesFromFirestore();
+        
+        // Clear loading state
+        $('#coachesList').empty();
+        
+        // Re-add the "no coach" option
         $('#coachesList').append(`
           <div class="col">
             <div class="card coach-item mb-3">
-              <div class="row g-0">
-                <div class="col-md-4">
-                  <img src="${coach.image}" class="img-fluid rounded-start h-100" style="object-fit: cover;">
-                </div>
-                <div class="col-md-8">
-                  <div class="card-body">
-                    <h5 class="card-title">${coach.name}</h5>
-                    <p class="card-text"><small class="text-muted">${coach.experience} experience</small></p>
-                    <p class="card-text"><i class="bi bi-star-fill text-warning"></i> ${coach.rating}</p>
-                    <p class="card-text">RM${coach.price}/session</p>
-                    <div class="form-check">
-                      <input class="form-check-input" type="radio" name="coachOption" 
-                             id="coach-${coach.id}" value="${coach.id}">
-                      <label class="form-check-label" for="coach-${coach.id}">
-                        Select Coach
-                      </label>
-                    </div>
-                  </div>
+              <div class="card-body">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="coachOption" id="noCoach" value="no" checked>
+                  <label class="form-check-label" for="noCoach">
+                    No coach needed
+                  </label>
                 </div>
               </div>
             </div>
           </div>
         `);
-      });
+
+        // Filter coaches by facility if needed, or show all
+        let filteredCoaches = coachesData;
+        if (selectedFacility && selectedFacility.id) {
+          // Show coaches that are either assigned to this facility or not assigned to any facility
+          filteredCoaches = coachesData.filter(coach => 
+            !coach.facilityId || coach.facilityId === selectedFacility.id
+          );
+        }
+
+        // Add coach options
+        if (filteredCoaches.length === 0) {
+          $('#coachesList').append(`
+            <div class="col-12">
+              <div class="alert alert-info">
+                No coaches available for this facility at the moment.
+              </div>
+            </div>
+          `);
+        } else {
+          filteredCoaches.forEach(coach => {
+            $('#coachesList').append(`
+              <div class="col">
+                <div class="card coach-item mb-3">
+                  <div class="row g-0">
+                    <div class="col-md-4">
+                      <img src="${coach.image}" class="img-fluid rounded-start h-100" style="object-fit: cover;" 
+                           onerror="this.src='https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_640.png'">
+                    </div>
+                    <div class="col-md-8">
+                      <div class="card-body">
+                        <h5 class="card-title">${coach.name}</h5>
+                        <p class="card-text"><small class="text-muted">${coach.experience}</small></p>
+                        ${coach.availability ? `<p class="card-text"><small>Available: ${coach.availability}</small></p>` : ''}
+                        ${coach.highlights ? `<p class="card-text"><small>${coach.highlights}</small></p>` : ''}
+                        <p class="card-text"><i class="bi bi-star-fill text-warning"></i> ${coach.rating}</p>
+                        <p class="card-text">RM${coach.price}/session</p>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" name="coachOption" 
+                                 id="coach-${coach.id}" value="${coach.id}">
+                          <label class="form-check-label" for="coach-${coach.id}">
+                            Select Coach
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `);
+          });
+        }
+      } catch (error) {
+        console.error("Error loading coaches:", error);
+        $('#coachesList').html(`
+          <div class="col-12">
+            <div class="alert alert-danger">
+              Error loading coaches. Please try again.
+            </div>
+          </div>
+        `);
+      }
 
       // Update price display
       updatePriceDisplay();
       
       $('#coachModal').modal('show');
     }
+
     
     function applyDiscount() {
       const pointsToRedeem = parseInt($('#redeemOption').val());

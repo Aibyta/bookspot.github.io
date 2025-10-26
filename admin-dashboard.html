@@ -1137,7 +1137,7 @@
 
     <div class="sidebar-footer">
       <div class="user-profile mb-3">
-        <img src="https://via.placeholder.com/40" alt="Admin" class="user-avatar" id="adminAvatar">
+        <img src="https://cdn-icons-png.freepik.com/512/10870/10870763.png" alt="Admin" class="user-avatar" id="adminAvatar">
         <div class="sidebar-text">
           <div class="fw-bold" id="adminName">Admin</div>
           <small id="adminEmail">admin@sportova.com</small>
@@ -1319,6 +1319,9 @@
           adminAvatar.src = user.photoURL;
         }
 
+        // Initialize header notifications
+        initializeHeaderNotifications();
+
         // Load admin facilities and dashboard data
         loadAdminFacilities().then(() => {
           // Check if there's a saved page in localStorage
@@ -1462,157 +1465,245 @@
     }
 
     // Load dashboard data - FIXED VERSION
-    async function loadDashboardData() {
-      try {
-        // Get facility IDs for this admin
-        const facilityIds = adminFacilities.map(f => f.id);
+async function loadDashboardData() {
+  try {
+    // Get facility IDs for this admin
+    const facilityIds = adminFacilities.map(f => f.id);
 
-        if (facilityIds.length === 0) {
-          document.getElementById('totalBookings').textContent = '0';
-          document.getElementById('totalCustomers').textContent = '0';
-          document.getElementById('totalRevenue').textContent = 'RM0';
-          document.getElementById('totalFacilities').textContent = '0';
-          document.getElementById('recentBookings').innerHTML = '<tr><td colspan="5" class="text-center">No facilities found</td></tr>';
-          return;
-        }
+    if (facilityIds.length === 0) {
+      document.getElementById('totalBookings').textContent = '0';
+      document.getElementById('totalCustomers').textContent = '0';
+      document.getElementById('totalRevenue').textContent = 'RM0';
+      document.getElementById('totalFacilities').textContent = '0';
+      document.getElementById('recentBookings').innerHTML = '<tr><td colspan="5" class="text-center">No facilities found</td></tr>';
+      return;
+    }
 
-        // Fetch bookings for admin's facilities
-        const bookingsSnapshot = await db.collection("bookings")
-          .where("facilityId", "in", facilityIds)
-          .get();
+    // Fetch bookings for admin's facilities
+    const bookingsSnapshot = await db.collection("bookings")
+      .where("facilityId", "in", facilityIds)
+      .get();
 
-        const totalBookings = bookingsSnapshot.size;
-        document.getElementById('totalBookings').textContent = totalBookings;
+    const totalBookings = bookingsSnapshot.size;
+    document.getElementById('totalBookings').textContent = totalBookings;
 
-        // Calculate unique customers (users who booked admin's facilities)
-        const customerIds = new Set();
-        bookingsSnapshot.forEach(doc => {
-          const booking = doc.data();
-          if (booking.userId) {
-            customerIds.add(booking.userId);
-          }
-        });
-        document.getElementById('totalCustomers').textContent = customerIds.size;
+    // Calculate unique customers (users who booked admin's facilities)
+    const customerIds = new Set();
+    let totalRevenue = 0;
+    const recentBookings = [];
 
-        // Calculate revenue from admin's facilities
-        let totalRevenue = 0;
-        bookingsSnapshot.forEach(doc => {
-          const booking = doc.data();
-          if (booking.price) {
-            totalRevenue += parseFloat(booking.price);
-          }
-        });
-        document.getElementById('totalRevenue').textContent = `RM${totalRevenue.toFixed(2)}`;
+    bookingsSnapshot.forEach(doc => {
+      const booking = doc.data();
+      
+      // Handle customer IDs
+      if (booking.userId) {
+        customerIds.add(booking.userId);
+      }
 
-        // Total facilities
-        document.getElementById('totalFacilities').textContent = adminFacilities.length;
+      // Handle revenue calculation
+      if (booking.price) {
+        totalRevenue += parseFloat(booking.price);
+      }
 
-        // Load recent bookings
-        const recentBookingsBody = document.getElementById('recentBookings');
-        recentBookingsBody.innerHTML = '';
+      // Prepare recent bookings data
+      recentBookings.push({ 
+        id: doc.id, 
+        ...booking,
+        // Store the raw date for display
+        rawDate: booking.date
+      });
+    });
 
-        if (bookingsSnapshot.empty) {
-          recentBookingsBody.innerHTML = '<tr><td colspan="5" class="text-center">No bookings found</td></tr>';
+    document.getElementById('totalCustomers').textContent = customerIds.size;
+    document.getElementById('totalRevenue').textContent = `RM${totalRevenue.toFixed(2)}`;
+    document.getElementById('totalFacilities').textContent = adminFacilities.length;
+
+    // Load recent bookings
+    const recentBookingsBody = document.getElementById('recentBookings');
+    recentBookingsBody.innerHTML = '';
+
+    if (recentBookings.length === 0) {
+      recentBookingsBody.innerHTML = '<tr><td colspan="5" class="text-center">No bookings found</td></tr>';
+    } else {
+      // Sort by timestamp or date (newest first) and take first 5
+      recentBookings.sort((a, b) => {
+        // Try to get dates for comparison
+        let dateA, dateB;
+
+        // For a
+        if (a.timestamp && a.timestamp.toDate) {
+          dateA = a.timestamp.toDate();
+        } else if (a.date && a.date.toDate) {
+          dateA = a.date.toDate();
+        } else if (a.date) {
+          dateA = new Date(a.date);
         } else {
-          // Get last 5 bookings
-          const recentBookings = [];
-          bookingsSnapshot.forEach(doc => {
-            recentBookings.push({ id: doc.id, ...doc.data() });
-          });
-
-          // Sort by timestamp (newest first) and take first 5
-          recentBookings.sort((a, b) => {
-            const timeA = a.timestamp ? a.timestamp.toDate() : new Date(0);
-            const timeB = b.timestamp ? b.timestamp.toDate() : new Date(0);
-            return timeB - timeA;
-          }).slice(0, 5).forEach(booking => {
-            const tr = document.createElement('tr');
-            const date = booking.date ? booking.date.toDate().toLocaleString() : 'N/A';
-            const time = booking.slots || 'N/A';
-            const status = booking.status || 'pending';
-
-            tr.innerHTML = `
-              <td>${booking.userEmail || 'Unknown User'}</td>
-              <td>${booking.facilityName || 'Unknown Facility'}</td>
-              <td>${date}</td>
-              <td>${time}</td>
-              <td><span class="badge badge-status badge-${status}">${status}</span></td>
-            `;
-            recentBookingsBody.appendChild(tr);
-          });
+          dateA = new Date(0); // Default to epoch if no date
         }
 
-        // Initialize revenue chart
-        initRevenueChart(bookingsSnapshot);
+        // For b
+        if (b.timestamp && b.timestamp.toDate) {
+          dateB = b.timestamp.toDate();
+        } else if (b.date && b.date.toDate) {
+          dateB = b.date.toDate();
+        } else if (b.date) {
+          dateB = new Date(b.date);
+        } else {
+          dateB = new Date(0); // Default to epoch if no date
+        }
 
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
-        showToast('Error loading dashboard data', 'danger');
+        return dateB - dateA; // Newest first
+      }).slice(0, 5).forEach(booking => {
+        const tr = document.createElement('tr');
+        
+        // Format date for display
+        let displayDate = 'N/A';
+        let displayTime = booking.slots || 'N/A';
+        const status = booking.status || 'pending';
+
+        // Handle different date formats for display
+        if (booking.timestamp && booking.timestamp.toDate) {
+          displayDate = booking.timestamp.toDate().toLocaleString();
+        } else if (booking.date && booking.date.toDate) {
+          displayDate = booking.date.toDate().toLocaleString();
+        } else if (booking.date) {
+          try {
+            displayDate = new Date(booking.date).toLocaleString();
+          } catch (e) {
+            displayDate = booking.date; // Use raw string if Date conversion fails
+          }
+        }
+
+        tr.innerHTML = `
+          <td>${booking.userEmail || booking.userName || 'Unknown User'}</td>
+          <td>${booking.facilityName || 'Unknown Facility'}</td>
+          <td>${displayDate}</td>
+          <td>${displayTime}</td>
+          <td><span class="badge badge-status badge-${status}">${status}</span></td>
+        `;
+        recentBookingsBody.appendChild(tr);
+      });
+    }
+
+    // Initialize revenue chart with the bookings snapshot
+    initRevenueChart(bookingsSnapshot);
+
+  } catch (error) {
+    console.error("Error loading dashboard data:", error);
+    showToast('Error loading dashboard data: ' + error.message, 'danger');
+  }
+}
+
+    // Initialize revenue chart with fixed size - FIXED VERSION
+function initRevenueChart(bookingsSnapshot) {
+  const ctx = document.getElementById('revenueChart');
+  if (!ctx) {
+    console.log('Revenue chart canvas not found');
+    return;
+  }
+
+  // Calculate monthly revenue - handle different date formats
+  const monthlyRevenue = {};
+  const currentYear = new Date().getFullYear();
+  
+  // Initialize all months with 0
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  months.forEach(month => {
+    monthlyRevenue[month] = 0;
+  });
+
+  bookingsSnapshot.forEach(doc => {
+    const booking = doc.data();
+    let bookingDate;
+    
+    // Handle different date formats
+    if (booking.timestamp && booking.timestamp.toDate) {
+      bookingDate = booking.timestamp.toDate();
+    } else if (booking.date && booking.date.toDate) {
+      bookingDate = booking.date.toDate();
+    } else if (booking.date) {
+      try {
+        bookingDate = new Date(booking.date);
+      } catch (e) {
+        console.log('Invalid date format:', booking.date);
+        return; // Skip this booking
+      }
+    } else {
+      return; // Skip if no valid date
+    }
+    
+    // Only process current year bookings and valid dates
+    if (bookingDate && bookingDate.getFullYear && bookingDate.getFullYear() === currentYear) {
+      const month = bookingDate.toLocaleString('default', { month: 'short' });
+      const price = parseFloat(booking.price) || 0;
+      monthlyRevenue[month] += price;
+    }
+  });
+
+  const revenueData = months.map(month => monthlyRevenue[month]);
+
+  // Create chart with fixed size
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: 'Revenue (RM)',
+        data: revenueData,
+        borderColor: '#4361ee',
+        backgroundColor: 'rgba(67, 97, 238, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            drawBorder: false
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          }
+        }
       }
     }
-
-    // Initialize revenue chart with fixed size
-    function initRevenueChart(bookingsSnapshot) {
-      const ctx = document.getElementById('revenueChart').getContext('2d');
-
-      // Calculate monthly revenue
-      const monthlyRevenue = {};
-      bookingsSnapshot.forEach(doc => {
-        const booking = doc.data();
-        if (booking.timestamp) {
-          const month = booking.timestamp.toDate().toLocaleString('default', { month: 'short' });
-          const price = parseFloat(booking.price) || 0;
-
-          if (monthlyRevenue[month]) {
-            monthlyRevenue[month] += price;
-          } else {
-            monthlyRevenue[month] = price;
-          }
-        }
-      });
-
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const revenueData = months.map(month => monthlyRevenue[month] || 0);
-
-      // Create chart with fixed size
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: months,
-          datasets: [{
-            label: 'Revenue (RM)',
-            data: revenueData,
-            borderColor: '#4361ee',
-            backgroundColor: 'rgba(67, 97, 238, 0.1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: false
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: {
-                drawBorder: false
-              }
-            },
-            x: {
-              grid: {
-                display: false
-              }
-            }
-          }
-        }
-      });
+  });
+}
+// Helper function to safely convert Firestore dates
+function safeDateConvert(dateField) {
+  if (!dateField) return null;
+  
+  if (dateField.toDate && typeof dateField.toDate === 'function') {
+    return dateField.toDate();
+  }
+  
+  if (dateField instanceof Date) {
+    return dateField;
+  }
+  
+  if (typeof dateField === 'string' || typeof dateField === 'number') {
+    try {
+      return new Date(dateField);
+    } catch (e) {
+      console.error('Invalid date format:', dateField);
+      return null;
     }
+  }
+  
+  return null;
+}
 
     // Load page content based on selection
     async function loadPageContent(page) {
@@ -1915,88 +2006,255 @@
     }
 
     async function loadBookingManagementPage() {
-      // Fetch bookings for admin's facilities
-      const facilityIds = adminFacilities.map(f => f.id);
-      let bookings = [];
+  try {
+    console.log('Loading booking management page...');
+    
+    // Fetch bookings for admin's facilities
+    const facilityIds = adminFacilities.map(f => f.id);
+    let bookings = [];
 
-      if (facilityIds.length > 0) {
-        const bookingsSnapshot = await db.collection("bookings")
-          .where("facilityId", "in", facilityIds)
-          .get();
+    if (facilityIds.length > 0) {
+      console.log(`Fetching bookings for facilities: ${facilityIds.join(', ')}`);
+      
+      const bookingsSnapshot = await db.collection("bookings")
+        .where("facilityId", "in", facilityIds)
+        .get();
 
-        bookingsSnapshot.forEach(doc => {
-          bookings.push({ id: doc.id, ...doc.data() });
+      console.log(`Found ${bookingsSnapshot.size} bookings in database`);
+
+      bookingsSnapshot.forEach(doc => {
+        const bookingData = doc.data();
+        console.log(`Booking ${doc.id}:`, {
+          facilityId: bookingData.facilityId,
+          facilityName: bookingData.facilityName,
+          userName: bookingData.userName,
+          userEmail: bookingData.userEmail,
+          date: bookingData.date,
+          slot: bookingData.slots,
+          status: bookingData.status,
+          price: bookingData.price
         });
-      }
 
-      let bookingsHTML = '';
-
-      if (bookings.length === 0) {
-        bookingsHTML = '<tr><td colspan="7" class="text-center py-4">No bookings found</td></tr>';
-      } else {
-        bookings.forEach(booking => {
-          const date = booking.date ? booking.date.toDate().toLocaleString() : 'N/A';
-          const time = booking.slots || 'N/A';
-          const status = booking.status || 'pending';
-
-          bookingsHTML += `
-            <tr>
-              <td>${booking.userEmail || 'Unknown User'}</td>
-              <td>${booking.facilityName || 'Unknown Facility'}</td>
-              <td>${date}</td>
-              <td>${time}</td>
-              <td>RM${booking.price || '0'}</td>
-              <td><span class="badge badge-status badge-${status}">${status}</span></td>
-              <td>
-                <button class="btn btn-sm btn-primary me-1" onclick="viewBooking('${booking.id}')">View</button>
-                ${status === 'pending' ? `
-                  <button class="btn btn-sm btn-success me-1" onclick="updateBookingStatus('${booking.id}', 'approved')">Approve</button>
-                  <button class="btn btn-sm btn-danger" onclick="updateBookingStatus('${booking.id}', 'cancelled')">Cancel</button>
-                ` : ''}
-              </td>
-            </tr>
-          `;
+        bookings.push({
+          id: doc.id,
+          ...bookingData,
+          // Ensure proper date handling
+          rawDate: bookingData.date,
+          rawTimestamp: bookingData.timestamp
         });
-      }
+      });
+    } else {
+      console.log('No facilities found for this admin');
+    }
 
-      return `
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h3>Booking Management</h3>
-          <div class="d-flex">
-            <div class="input-group me-2" style="width: 300px;">
-              <input type="text" class="form-control" placeholder="Search bookings..." id="bookingSearch">
-              <button class="btn btn-outline-primary" type="button" id="bookingSearchBtn">
-                <i class="fas fa-search"></i>
-              </button>
+    let bookingsHTML = '';
+
+    if (bookings.length === 0) {
+      bookingsHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-4">
+            <div class="text-muted">
+              <i class="fas fa-calendar-times fa-2x mb-3"></i>
+              <p>No bookings found</p>
+              <small>
+                ${facilityIds.length === 0 ? 
+                  'No facilities configured. Add facilities first.' : 
+                  'No bookings have been made for your facilities yet.'}
+              </small>
             </div>
-            <button class="btn btn-primary" onclick="exportBookings()">
-              <i class="fas fa-download me-1"></i> Export
+          </td>
+        </tr>
+      `;
+    } else {
+      // Sort bookings by date (newest first)
+      bookings.sort((a, b) => {
+        let dateA, dateB;
+        
+        // Handle date comparison safely
+        if (a.timestamp && a.timestamp.toDate) {
+          dateA = a.timestamp.toDate();
+        } else if (a.date && a.date.toDate) {
+          dateA = a.date.toDate();
+        } else if (a.date) {
+          dateA = new Date(a.date);
+        } else {
+          dateA = new Date(0);
+        }
+
+        if (b.timestamp && b.timestamp.toDate) {
+          dateB = b.timestamp.toDate();
+        } else if (b.date && b.date.toDate) {
+          dateB = b.date.toDate();
+        } else if (b.date) {
+          dateB = new Date(b.date);
+        } else {
+          dateB = new Date(0);
+        }
+
+        return dateB - dateA;
+      });
+
+      bookings.forEach(booking => {
+        // Format date for display
+        let displayDate = 'N/A';
+        let displayTime = booking.slots || booking.timeSlot || 'N/A';
+        const status = booking.status || 'pending';
+        
+        // Handle different date formats
+        if (booking.timestamp && booking.timestamp.toDate) {
+          displayDate = booking.timestamp.toDate().toLocaleDateString();
+        } else if (booking.date && booking.date.toDate) {
+          displayDate = booking.date.toDate().toLocaleDateString();
+        } else if (booking.date) {
+          try {
+            displayDate = new Date(booking.date).toLocaleDateString();
+          } catch (e) {
+            displayDate = String(booking.date).substring(0, 10);
+          }
+        }
+
+        // Get status badge class
+        let statusBadgeClass = 'badge-pending';
+        if (status === 'approved' || status === 'confirmed') {
+          statusBadgeClass = 'badge-approved';
+        } else if (status === 'cancelled' || status === 'rejected') {
+          statusBadgeClass = 'badge-cancelled';
+        } else if (status === 'completed') {
+          statusBadgeClass = 'badge-completed';
+        }
+
+        bookingsHTML += `
+          <tr>
+            <td>
+              <div class="d-flex align-items-center">
+                <img src="https://static.vecteezy.com/system/resources/previews/020/765/399/original/default-profile-account-unknown-icon-black-silhouette-free-vector.jpg" 
+                     class="rounded-circle me-2" width="32" height="32" 
+                     alt="${booking.userName || 'User'}">
+                <div>
+                  <div class="fw-semibold">${booking.userName || 'Unknown User'}</div>
+                  <small class="text-muted">${booking.userEmail || 'No email'}</small>
+                </div>
+              </div>
+            </td>
+            <td>${booking.facilityName || 'Unknown Facility'}</td>
+            <td>${displayDate}</td>
+            <td>${displayTime}</td>
+            <td>RM${parseFloat(booking.price || 0).toFixed(2)}</td>
+            <td>
+              <span class="badge badge-status ${statusBadgeClass}">
+                ${status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-primary me-1" onclick="viewBooking('${booking.id}')" title="View Details">
+                  <i class="fas fa-eye"></i>
+                </button>
+                ${status === 'pending' ? `
+                  <button class="btn btn-sm btn-success me-1" onclick="updateBookingStatus('${booking.id}', 'approved')" title="Approve">
+                    <i class="fas fa-check"></i>
+                  </button>
+                  <button class="btn btn-sm btn-danger" onclick="updateBookingStatus('${booking.id}', 'cancelled')" title="Cancel">
+                    <i class="fas fa-times"></i>
+                  </button>
+                ` : ''}
+                ${status === 'approved' ? `
+                  <button class="btn btn-sm btn-info me-1" onclick="updateBookingStatus('${booking.id}', 'completed')" title="Mark Complete">
+                    <i class="fas fa-flag-checkered"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    return `
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Booking Management</h3>
+        <div class="d-flex">
+          <div class="input-group me-2" style="width: 300px;">
+            <input type="text" class="form-control" placeholder="Search bookings..." id="bookingSearch">
+            <button class="btn btn-outline-primary" type="button" id="bookingSearchBtn">
+              <i class="fas fa-search"></i>
             </button>
           </div>
+          <button class="btn btn-primary" onclick="exportBookings()">
+            <i class="fas fa-download me-1"></i> Export
+          </button>
         </div>
-        
-        <div class="table-card">
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>User</th>
-                  <th>Facility</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="bookingsTableBody">
-                ${bookingsHTML}
-              </tbody>
-            </table>
+      </div>
+      
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-calendar-check"></i>
+            <div class="number">${bookings.length}</div>
+            <div class="label">Total Bookings</div>
           </div>
         </div>
-      `;
-    }
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-clock"></i>
+            <div class="number">${bookings.filter(b => b.status === 'pending').length}</div>
+            <div class="label">Pending</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-check-circle"></i>
+            <div class="number">${bookings.filter(b => b.status === 'approved' || b.status === 'confirmed').length}</div>
+            <div class="label">Approved</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-dollar-sign"></i>
+            <div class="number">RM${bookings.reduce((sum, booking) => sum + parseFloat(booking.price || 0), 0).toFixed(2)}</div>
+            <div class="label">Total Revenue</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Facility</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsTableBody">
+              ${bookingsHTML}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error("Error loading booking management page:", error);
+    return `
+      <div class="alert alert-danger">
+        <h4>Error Loading Bookings</h4>
+        <p>There was an error loading booking data: ${error.message}</p>
+        <details class="mt-2">
+          <summary>Technical Details</summary>
+          <small class="text-muted">${error.stack}</small>
+        </details>
+        <button class="btn btn-primary mt-2" onclick="loadPageContent('booking-management')">
+          <i class="fas fa-redo me-1"></i> Retry
+        </button>
+      </div>
+    `;
+  }
+}
 
     async function loadUserManagementPage() {
       try {
@@ -2065,7 +2323,6 @@
             <td>${user.membership || 'Regular'}</td>
             <td>${user.totalBookings || 0}</td>
             <td>${totalSpent}</td>
-            <td>${lastBooking}</td>
             <td>
               <div class="btn-group" role="group">
               <button class="btn btn-sm btn-primary me-1" onclick="viewUser('${user.id}')" title="View Details">
@@ -2142,7 +2399,6 @@
                 <th>Membership</th>
                 <th>Bookings</th>
                 <th>Total Spent</th>
-                <th>Last Booking</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -2255,61 +2511,121 @@
       });
     }
 
-    // View user details - FIXED VERSION with profile picture
-    async function viewUser(userId) {
-      try {
+    // Enhanced viewUser function with better error handling
+async function viewUser(userId) {
+    try {
+        console.log('Viewing user ID:', userId);
+
+        if (!userId) {
+            showToast('Invalid user ID', 'danger');
+            return;
+        }
+
         // Fetch user details
         const userDoc = await db.collection('users').doc(userId).get();
+        
+        if (!userDoc.exists) {
+            showToast('User not found', 'danger');
+            return;
+        }
+
         const user = userDoc.data();
+        console.log('User data loaded:', user);
 
         // Fetch user's bookings for admin's facilities
         const facilityIds = adminFacilities.map(f => f.id);
         let userBookings = [];
 
         if (facilityIds.length > 0) {
-          const bookingsSnapshot = await db.collection('bookings')
-            .where('userId', '==', userId)
-            .where('facilityId', 'in', facilityIds)
-            .get();
+            const bookingsSnapshot = await db.collection('bookings')
+                .where('userId', '==', userId)
+                .where('facilityId', 'in', facilityIds)
+                .get();
 
-          bookingsSnapshot.forEach(doc => {
-            userBookings.push({ id: doc.id, ...doc.data() });
-          });
+            bookingsSnapshot.forEach(doc => {
+                const bookingData = doc.data();
+                userBookings.push({ 
+                    id: doc.id, 
+                    ...bookingData,
+                    // Ensure proper date handling
+                    date: bookingData.date || bookingData.timestamp
+                });
+            });
         }
+
+        console.log(`Found ${userBookings.length} bookings for user`);
 
         // Calculate user statistics
         const totalBookings = userBookings.length;
         const totalSpent = userBookings.reduce((sum, booking) => sum + parseFloat(booking.price || 0), 0);
-        const lastBooking = userBookings.length > 0 ?
-          userBookings.sort((a, b) => {
-            const timeA = a.timestamp ? a.timestamp.toDate() : new Date(0);
-            const timeB = b.timestamp ? b.timestamp.toDate() : new Date(0);
-            return timeB - timeA;
-          })[0] : null;
+        
+        // Sort bookings by date (newest first)
+        const sortedBookings = userBookings.sort((a, b) => {
+            let dateA, dateB;
+            
+            if (a.timestamp && a.timestamp.toDate) {
+                dateA = a.timestamp.toDate();
+            } else if (a.date && a.date.toDate) {
+                dateA = a.date.toDate();
+            } else if (a.date) {
+                dateA = new Date(a.date);
+            } else {
+                dateA = new Date(0);
+            }
 
-        // Create modal content with FIXED profile picture
+            if (b.timestamp && b.timestamp.toDate) {
+                dateB = b.timestamp.toDate();
+            } else if (b.date && b.date.toDate) {
+                dateB = b.date.toDate();
+            } else if (b.date) {
+                dateB = new Date(b.date);
+            } else {
+                dateB = new Date(0);
+            }
+
+            return dateB - dateA;
+        });
+
+        const lastBooking = sortedBookings.length > 0 ? sortedBookings[0] : null;
+
+        // Format user data safely
+        const userName = user.name || user.displayName || 'N/A';
+        const userEmail = user.email || 'N/A';
+        const userPhone = user.phone || user.phoneNumber || 'N/A';
+        const userMembership = user.membership || 'Regular';
+        const userStatus = user.status || 'Active';
+        const userPhoto = user.photoURL || user.photoUrl || 'https://via.placeholder.com/150x150?text=No+Image';
+        
+        // Format creation date
+        let memberSince = 'N/A';
+        if (user.createdAt && user.createdAt.toDate) {
+            memberSince = user.createdAt.toDate().toLocaleDateString();
+        } else if (user.createdAt) {
+            memberSince = new Date(user.createdAt).toLocaleDateString();
+        }
+
+        // Create modal content
         const modalContent = `
-            <div class="modal fade" id="viewUserModal" tabindex="-1">
+            <div class="modal fade" id="viewUserModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">User Details: ${user.name || 'N/A'}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <h5 class="modal-title">User Details: ${userName}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="text-center mb-4">
-                                        <!-- FIXED: Proper profile picture handling -->
-                                        <img src="${user.photoURL || 'https://via.placeholder.com/150x150?text=No+Image'}" 
-                                             alt="${user.name || 'User'}" 
+                                        <img src="${userPhoto}" 
+                                             alt="${userName}" 
                                              class="img-fluid rounded-circle mb-3" 
                                              style="width: 150px; height: 150px; object-fit: cover; border: 3px solid #4361ee;"
                                              onerror="this.src='https://via.placeholder.com/150x150?text=No+Image'">
-                                        <h4>${user.name || 'N/A'}</h4>
-                                        <p class="text-muted">${user.membership || 'Regular'} Member</p>
-                                        <span class="badge ${user.status === 'Active' ? 'bg-success' : user.status === 'Suspended' ? 'bg-danger' : 'bg-secondary'}">
-                                            ${user.status || 'Active'}
+                                        <h4>${userName}</h4>
+                                        <p class="text-muted">${userMembership} Member</p>
+                                        <span class="badge ${userStatus === 'Active' ? 'bg-success' : userStatus === 'Suspended' ? 'bg-danger' : 'bg-secondary'}">
+                                            ${userStatus}
                                         </span>
                                     </div>
                                 </div>
@@ -2321,9 +2637,10 @@
                                                     <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Basic Information</h6>
                                                 </div>
                                                 <div class="card-body">
-                                                    <p><strong>Email:</strong> ${user.email || 'N/A'}</p>
-                                                    <p><strong>Phone:</strong> ${user.phone || 'N/A'}</p>
-                                                    <p><strong>Member Since:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString() : 'N/A'}</p>
+                                                    <p><strong>Email:</strong> ${userEmail}</p>
+                                                    <p><strong>Phone:</strong> ${userPhone}</p>
+                                                    <p><strong>Member Since:</strong> ${memberSince}</p>
+                                                    <p><strong>User ID:</strong> <small class="text-muted">${userId}</small></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -2335,7 +2652,6 @@
                                                 <div class="card-body">
                                                     <p><strong>Total Bookings:</strong> ${totalBookings}</p>
                                                     <p><strong>Total Spent:</strong> RM${totalSpent.toFixed(2)}</p>
-                                                    <p><strong>Last Booking:</strong> ${lastBooking ? lastBooking.date.toDate().toLocaleString() : 'No bookings'}</p>
                                                     <p><strong>Avg. per Booking:</strong> RM${totalBookings > 0 ? (totalSpent / totalBookings).toFixed(2) : '0'}</p>
                                                 </div>
                                             </div>
@@ -2357,7 +2673,7 @@
                             
                             ${userBookings.length > 0 ? `
                                 <div class="mt-4">
-                                    <h5>Recent Bookings</h5>
+                                    <h5>Recent Bookings (${userBookings.length} total)</h5>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-hover">
                                             <thead>
@@ -2367,25 +2683,36 @@
                                                     <th>Time</th>
                                                     <th>Amount</th>
                                                     <th>Status</th>
+                                                    <th>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                ${userBookings.slice(0, 5).map(booking => `
+                                                ${sortedBookings.slice(0, 5).map(booking => `
                                                     <tr>
                                                         <td>${booking.facilityName || 'N/A'}</td>
-                                                        <td>${booking.date.toDate().toLocaleString() || 'N/A'}</td>
-                                                        <td>${booking.slots || 'N/A'}</td>
+                                                        <td>${formatBookingDate(booking)}</td>
+                                                        <td>${booking.slots || booking.timeSlot || 'N/A'}</td>
                                                         <td>RM${parseFloat(booking.price || 0).toFixed(2)}</td>
                                                         <td>
                                                             <span class="badge badge-status badge-${booking.status || 'pending'}">
-                                                                ${booking.status || 'Pending'}
+                                                                ${(booking.status || 'pending').charAt(0).toUpperCase() + (booking.status || 'pending').slice(1)}
                                                             </span>
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-primary" onclick="viewBooking('${booking.id}')">
+                                                                <i class="fas fa-eye"></i>
+                                                            </button>
                                                         </td>
                                                     </tr>
                                                 `).join('')}
                                             </tbody>
                                         </table>
                                     </div>
+                                    ${userBookings.length > 5 ? `
+                                        <div class="text-center mt-2">
+                                            <small class="text-muted">Showing 5 of ${userBookings.length} bookings</small>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : `
                                 <div class="alert alert-info mt-4">
@@ -2405,21 +2732,48 @@
             </div>
         `;
 
-        // Add modal to page and show it
+        // Remove existing modal if any
+        const existingModal = document.getElementById('viewUserModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalContent);
+
+        // Show modal
         const modal = new bootstrap.Modal(document.getElementById('viewUserModal'));
         modal.show();
 
         // Remove modal from DOM when hidden
         document.getElementById('viewUserModal').addEventListener('hidden.bs.modal', function () {
-          this.remove();
+            this.remove();
         });
 
-      } catch (error) {
+    } catch (error) {
         console.error('Error viewing user:', error);
-        showToast('Error loading user details', 'danger');
-      }
+        showToast('Error loading user details: ' + error.message, 'danger');
     }
+}
+// Helper function to format booking dates safely
+function formatBookingDate(booking) {
+    if (!booking) return 'N/A';
+    
+    try {
+        if (booking.timestamp && booking.timestamp.toDate) {
+            return booking.timestamp.toDate().toLocaleDateString();
+        } else if (booking.date && booking.date.toDate) {
+            return booking.date.toDate().toLocaleDateString();
+        } else if (booking.date) {
+            return new Date(booking.date).toLocaleDateString();
+        } else {
+            return 'N/A';
+        }
+    } catch (error) {
+        console.error('Error formatting booking date:', error);
+        return 'Invalid Date';
+    }
+}
 
     // Comprehensive Export Functionality
     function exportToCSV(data, filename, headers) {
@@ -4776,10 +5130,13 @@
     });
 
     // Store data for charts
-    window.monthlyRevenueData = monthlyRevenue;
-    window.bookingTrendsData = bookingTrends;
-    window.facilityPerformanceData = facilityPerformance;
-    window.statusDistributionData = statusDistribution;
+    window.aiInsightsData = {
+      monthlyRevenue,
+      bookingTrends,
+      facilityPerformance,
+      statusDistribution,
+      bookings
+    };
 
     return `
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -4845,6 +5202,7 @@
                     <th>Facility</th>
                     <th>Bookings</th>
                     <th>Revenue</th>
+                    <th>Avg. Value</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4853,10 +5211,11 @@
                       <td>${facility.name}</td>
                       <td>${facility.bookings}</td>
                       <td>RM${facility.revenue.toFixed(2)}</td>
+                      <td>RM${(facility.revenue / facility.bookings).toFixed(2)}</td>
                     </tr>
                   `).join('') : `
                     <tr>
-                      <td colspan="3" class="text-center text-muted">No facility data available</td>
+                      <td colspan="4" class="text-center text-muted">No facility data available</td>
                     </tr>
                   `}
                 </tbody>
@@ -4866,7 +5225,7 @@
         </div>
         <div class="col-md-6">
           <div class="table-card">
-            <h4>Booking Trends</h4>
+            <h4>Booking Trends (Last 30 Days)</h4>
             <div class="chart-container" style="height: 300px;">
               <canvas id="trendsChart"></canvas>
             </div>
@@ -4891,7 +5250,7 @@
 
           <div class="table-card mt-4">
             <h4>Booking Status Distribution</h4>
-            <div class="chart-container" style="height: 200px;">
+            <div class="chart-container" style="height: 250px;">
               <canvas id="statusChart"></canvas>
             </div>
           </div>
@@ -4912,19 +5271,19 @@
     `;
   }
 }
-// Add this to your initializePageFunctionality function
-function initializePageFunctionality(page) {
-  switch (page) {
-    case 'ai-insights':
-      setTimeout(() => {
-        initializeAICharts();
-      }, 500);
-      break;
-    // ... other page initializations
-  }
-}
+    // Add this to your initializePageFunctionality function
+    function initializePageFunctionality(page) {
+      switch (page) {
+        case 'ai-insights':
+          setTimeout(() => {
+            initializeAICharts();
+          }, 500);
+          break;
+        // ... other page initializations
+      }
+    }
 
-    // AI Recommendation Engine based on real data
+    // AI Recommendation Engine
 function generateAIRecommendations(data) {
   const recommendations = [];
 
@@ -4968,172 +5327,275 @@ function generateAIRecommendations(data) {
     }
   }
 
-  // Seasonal recommendations
-  const currentMonth = new Date().getMonth();
-  if (currentMonth >= 10 || currentMonth <= 1) {
-    recommendations.push('Promote indoor facilities and winter sports packages');
-  } else if (currentMonth >= 5 && currentMonth <= 8) {
-    recommendations.push('Focus on outdoor facilities and summer sports promotions');
-  }
-
-  // Average booking value recommendations
-  if (parseFloat(data.avgBookingValue) < 50) {
-    recommendations.push('Create bundled packages to increase average booking value');
-  }
-
   // Ensure minimum recommendations
   if (recommendations.length < 4) {
     recommendations.push('Collect customer feedback to identify service improvement areas');
     recommendations.push('Monitor booking patterns to optimize pricing strategies');
     recommendations.push('Consider partnerships with local sports clubs or organizations');
+    recommendations.push('Analyze seasonal trends to plan marketing campaigns effectively');
   }
 
-  return recommendations.slice(0, 6); // Return top 6 most relevant recommendations
+  return recommendations.slice(0, 6);
 }
-    // Enhanced chart initialization for AI Insights
+
+    // Enhanced chart initialization function
 function initializeAICharts() {
   try {
-    // Revenue Chart
+    console.log('Initializing AI charts...');
+    
+    const data = window.aiInsightsData;
+    if (!data) {
+      console.error('No AI insights data found');
+      return;
+    }
+
+    // 1. Revenue Chart
     const revenueCtx = document.getElementById('revenueChart');
     if (revenueCtx) {
-      const monthlyData = window.monthlyRevenueData || {};
-      const months = Object.keys(monthlyData);
-      const revenueData = Object.values(monthlyData);
-
-      new Chart(revenueCtx, {
-        type: 'bar',
-        data: {
-          labels: months,
-          datasets: [{
-            label: 'Monthly Revenue (RM)',
-            data: revenueData,
-            backgroundColor: '#4361ee',
-            borderColor: '#3a0ca3',
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true
-            }
+      const monthlyData = data.monthlyRevenue || {};
+      
+      // Get last 6 months for better display
+      const months = getLastMonths(6);
+      const revenueData = months.map(month => monthlyData[month] || 0);
+      
+      // If no data, show message
+      if (revenueData.every(val => val === 0)) {
+        revenueCtx.parentElement.innerHTML = `
+          <div class="text-center py-5">
+            <i class="fas fa-chart-line fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No revenue data available for the last 6 months</p>
+          </div>
+        `;
+      } else {
+        new Chart(revenueCtx, {
+          type: 'line',
+          data: {
+            labels: months,
+            datasets: [{
+              label: 'Monthly Revenue (RM)',
+              data: revenueData,
+              borderColor: '#4361ee',
+              backgroundColor: 'rgba(67, 97, 238, 0.1)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: '#4361ee',
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 2,
+              pointRadius: 5
+            }]
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
                 display: true,
-                text: 'Revenue (RM)'
+                position: 'top'
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return `Revenue: RM${context.parsed.y.toFixed(2)}`;
+                  }
+                }
               }
             },
-            x: {
-              title: {
-                display: true,
-                text: 'Month'
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Revenue (RM)'
+                },
+                grid: {
+                  color: 'rgba(0,0,0,0.1)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Month'
+                },
+                grid: {
+                  display: false
+                }
               }
             }
           }
-        }
-      });
+        });
+      }
     }
 
-    // Trends Chart
+    // 2. Trends Chart
     const trendsCtx = document.getElementById('trendsChart');
     if (trendsCtx) {
-      const trendsData = window.bookingTrendsData || {};
-      const days = Object.keys(trendsData);
-      const bookingsCount = Object.values(trendsData);
-
-      new Chart(trendsCtx, {
-        type: 'line',
-        data: {
-          labels: days,
-          datasets: [{
-            label: 'Daily Bookings',
-            data: bookingsCount,
-            borderColor: '#4cc9f0',
-            backgroundColor: 'rgba(76, 201, 240, 0.1)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              display: true
-            }
+      const trendsData = data.bookingTrends || {};
+      
+      // Get last 14 days for trends
+      const days = getLastDays(14);
+      const bookingsData = days.map(day => trendsData[day] || 0);
+      
+      if (bookingsData.every(val => val === 0)) {
+        trendsCtx.parentElement.innerHTML = `
+          <div class="text-center py-5">
+            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+            <p class="text-muted">No booking data available for the last 14 days</p>
+          </div>
+        `;
+      } else {
+        new Chart(trendsCtx, {
+          type: 'bar',
+          data: {
+            labels: days,
+            datasets: [{
+              label: 'Daily Bookings',
+              data: bookingsData,
+              backgroundColor: '#4cc9f0',
+              borderColor: '#3a0ca3',
+              borderWidth: 1
+            }]
           },
-          scales: {
-            y: {
-              beginAtZero: true,
-              title: {
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
                 display: true,
-                text: 'Number of Bookings'
+                position: 'top'
               }
             },
-            x: {
-              title: {
-                display: true,
-                text: 'Date'
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Number of Bookings'
+                },
+                grid: {
+                  color: 'rgba(0,0,0,0.1)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                },
+                grid: {
+                  display: false
+                }
               }
             }
           }
-        }
-      });
+        });
+      }
     }
 
-    // Status Chart
+    // 3. Status Distribution Chart
     const statusCtx = document.getElementById('statusChart');
     if (statusCtx) {
-      const statusData = window.statusDistributionData || {};
-      const statuses = Object.keys(statusData);
-      const statusCounts = Object.values(statusData);
+      const statusData = data.statusDistribution || {};
+      
+      const statusLabels = Object.keys(statusData).map(status => 
+        status.charAt(0).toUpperCase() + status.slice(1)
+      );
+      const statusValues = Object.values(statusData);
+      
+      const backgroundColors = [
+        '#4361ee', // Primary blue for approved/confirmed
+        '#4cc9f0', // Light blue for pending
+        '#f94144', // Red for cancelled
+        '#f9c74f', // Yellow for other statuses
+        '#90be6d', // Green for completed
+        '#577590'  // Dark blue for others
+      ];
 
-      const statusColors = {
-        'approved': '#28a745',
-        'pending': '#ffc107',
-        'completed': '#17a2b8',
-        'cancelled': '#dc3545',
-        'confirmed': '#20c997'
-      };
-
-      new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-          labels: statuses.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
-          datasets: [{
-            data: statusCounts,
-            backgroundColor: statuses.map(s => statusColors[s] || '#6c757d'),
-            borderWidth: 2,
-            borderColor: '#fff'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom'
-            }
+      if (statusValues.length === 0) {
+        statusCtx.parentElement.innerHTML = `
+          <div class="text-center py-4">
+            <i class="fas fa-chart-pie fa-2x text-muted mb-2"></i>
+            <p class="text-muted">No status data available</p>
+          </div>
+        `;
+      } else {
+        new Chart(statusCtx, {
+          type: 'doughnut',
+          data: {
+            labels: statusLabels,
+            datasets: [{
+              data: statusValues,
+              backgroundColor: backgroundColors.slice(0, statusLabels.length),
+              borderWidth: 2,
+              borderColor: '#ffffff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  padding: 15,
+                  usePointStyle: true
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = Math.round((context.parsed / total) * 100);
+                    return `${context.label}: ${context.parsed} (${percentage}%)`;
+                  }
+                }
+              }
+            },
+            cutout: '60%'
           }
-        }
-      });
+        });
+      }
     }
+
+    console.log('AI charts initialized successfully');
+
   } catch (error) {
     console.error('Error initializing AI charts:', error);
+    showToast('Error loading charts: ' + error.message, 'danger');
   }
 }
 
-// Refresh insights function
-function refreshInsights() {
-  showToast('Refreshing AI insights with latest data', 'info');
-  loadPageContent('ai-insights');
+// Helper function to get last N months
+function getLastMonths(n) {
+  const months = [];
+  const date = new Date();
+  
+  for (let i = n - 1; i >= 0; i--) {
+    const tempDate = new Date(date);
+    tempDate.setMonth(date.getMonth() - i);
+    months.push(tempDate.toLocaleString('default', { month: 'short', year: 'numeric' }));
+  }
+  
+  return months;
 }
+
+// Helper function to get last N days
+function getLastDays(n) {
+  const days = [];
+  const date = new Date();
+  
+  for (let i = n - 1; i >= 0; i--) {
+    const tempDate = new Date(date);
+    tempDate.setDate(date.getDate() - i);
+    days.push(tempDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+  }
+  
+  return days;
+}
+    // Refresh insights function
+    function refreshInsights() {
+      showToast('Refreshing AI insights with latest data', 'info');
+      loadPageContent('ai-insights');
+    }
 
     // In the loadPromoVouchersPage function, replace the Firestore query:
     async function loadPromoVouchersPage() {
@@ -5747,110 +6209,175 @@ function refreshInsights() {
     }
 
     // Enhanced savePromo function
-    async function savePromo() {
-      try {
-        const promoId = document.getElementById('promoId').value;
-        const collectionName = document.getElementById('promoCollection').value || 'promos';
+async function savePromo() {
+  try {
+    const promoId = document.getElementById('promoId').value;
+    const collectionName = document.getElementById('promoCollection').value || 'promos';
 
-        const promoData = {
-          code: document.getElementById('promoCode').value.trim().toUpperCase(),
-          type: document.getElementById('promoType').value,
-          discountValue: parseFloat(document.getElementById('promoDiscount').value),
-          minPurchase: document.getElementById('promoMinPurchase').value ?
-            parseFloat(document.getElementById('promoMinPurchase').value) : null,
-          maxUsage: document.getElementById('promoMaxUsage').value ?
-            parseInt(document.getElementById('promoMaxUsage').value) : null,
-          usagePerCustomer: parseInt(document.getElementById('promoUsagePerCustomer').value) || 1,
-          description: document.getElementById('promoDescription').value.trim(),
-          validFrom: new Date(document.getElementById('promoValidFrom').value),
-          validTo: new Date(document.getElementById('promoValidTo').value),
-          status: document.getElementById('promoActive').checked ? 'active' : 'inactive',
-          facilities: Array.from(document.getElementById('promoFacilities').selectedOptions)
-            .map(option => option.value),
+    const promoData = {
+      code: document.getElementById('promoCode').value.trim().toUpperCase(),
+      type: document.getElementById('promoType').value,
+      discountValue: parseFloat(document.getElementById('promoDiscount').value),
+      minPurchase: document.getElementById('promoMinPurchase').value ?
+        parseFloat(document.getElementById('promoMinPurchase').value) : null,
+      maxUsage: document.getElementById('promoMaxUsage').value ?
+        parseInt(document.getElementById('promoMaxUsage').value) : null,
+      usagePerCustomer: parseInt(document.getElementById('promoUsagePerCustomer').value) || 1,
+      description: document.getElementById('promoDescription').value.trim(),
+      validFrom: new Date(document.getElementById('promoValidFrom').value),
+      validTo: new Date(document.getElementById('promoValidTo').value),
+      status: document.getElementById('promoActive').checked ? 'active' : 'inactive',
+      facilities: Array.from(document.getElementById('promoFacilities').selectedOptions)
+        .map(option => option.value),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Validation
+    if (!promoData.code) {
+      showToast('Please enter a promo code', 'warning');
+      return;
+    }
+
+    if (promoData.validTo <= promoData.validFrom) {
+      showToast('Valid To date must be after Valid From date', 'warning');
+      return;
+    }
+
+    if (promoData.discountValue <= 0) {
+      showToast('Discount value must be greater than 0', 'warning');
+      return;
+    }
+
+    console.log('Saving promo data:', promoData);
+    console.log('Collection:', collectionName, 'Promo ID:', promoId);
+
+    let newPromoId = promoId;
+
+    if (promoId) {
+      // Update existing promo
+      await db.collection(collectionName).doc(promoId).update(promoData);
+      showToast('Promo updated successfully', 'success');
+    } else {
+      // Create new promo
+      promoData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      promoData.usageCount = 0;
+      const result = await db.collection(collectionName).add(promoData);
+      newPromoId = result.id;
+      console.log('New promo created with ID:', newPromoId);
+      showToast('Promo created successfully', 'success');
+    }
+
+    // Add simple promo string to respective facility collections
+    await addPromoToFacilities(promoData.code, promoData.facilities);
+
+    // Close modal and reload
+    const modal = bootstrap.Modal.getInstance(document.getElementById('promoModal'));
+    if (modal) {
+      modal.hide();
+    }
+
+    // Reload the promo page
+    setTimeout(() => {
+      loadPageContent('promo-vouchers');
+    }, 500);
+
+  } catch (error) {
+    console.error('Error saving promo:', error);
+    showToast('Error saving promo: ' + error.message, 'danger');
+  }
+}
+
+// Simple function to add promo string to facilities
+async function addPromoToFacilities(promoCode, facilityIds) {
+  try {
+    if (!facilityIds || facilityIds.length === 0) {
+      console.log('No facilities selected for this promo');
+      return;
+    }
+
+    console.log('Adding promo to facilities:', facilityIds);
+
+    // Update each selected facility with simple promo string
+    const updatePromises = facilityIds.map(async (facilityId) => {
+      try {
+        await db.collection('facilities').doc(facilityId).update({
+          promo: promoCode, // Simple string field
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        // Validation
-        if (!promoData.code) {
-          showToast('Please enter a promo code', 'warning');
-          return;
-        }
-
-        if (promoData.validTo <= promoData.validFrom) {
-          showToast('Valid To date must be after Valid From date', 'warning');
-          return;
-        }
-
-        if (promoData.discountValue <= 0) {
-          showToast('Discount value must be greater than 0', 'warning');
-          return;
-        }
-
-        console.log('Saving promo data:', promoData);
-        console.log('Collection:', collectionName, 'Promo ID:', promoId);
-
-        if (promoId) {
-          // Update existing promo
-          await db.collection(collectionName).doc(promoId).update(promoData);
-          showToast('Promo updated successfully', 'success');
-        } else {
-          // Create new promo
-          promoData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-          promoData.usageCount = 0;
-          const result = await db.collection(collectionName).add(promoData);
-          console.log('New promo created with ID:', result.id);
-          showToast('Promo created successfully', 'success');
-        }
-
-        // Close modal and reload
-        const modal = bootstrap.Modal.getInstance(document.getElementById('promoModal'));
-        if (modal) {
-          modal.hide();
-        }
-
-        // Reload the promo page
-        setTimeout(() => {
-          loadPageContent('promo-vouchers');
-        }, 500);
-
+        });
+        console.log(`Promo "${promoCode}" added to facility: ${facilityId}`);
       } catch (error) {
-        console.error('Error saving promo:', error);
-        showToast('Error saving promo: ' + error.message, 'danger');
+        console.error(`Error updating facility ${facilityId}:`, error);
       }
+    });
+
+    await Promise.all(updatePromises);
+    
+    console.log(`Successfully added promo to ${facilityIds.length} facilities`);
+    showToast(`Promo "${promoCode}" added to ${facilityIds.length} facility(s)`, 'success');
+
+  } catch (error) {
+    console.error('Error adding promo to facilities:', error);
+    showToast('Error adding promo to facilities', 'warning');
+  }
+}
+
+// Function to remove promo from facilities
+async function removePromoFromFacilities(promoCode, facilityIds) {
+  try {
+    if (!facilityIds || facilityIds.length === 0) {
+      return;
     }
 
-    // Enhanced deletePromo function
-    async function deletePromo(promoId, collectionName = 'promos') {
+    const updatePromises = facilityIds.map(async (facilityId) => {
       try {
-        if (!promoId) {
-          showToast('Invalid promo ID', 'danger');
-          return;
-        }
-
-        if (!confirm('Are you sure you want to delete this promo? This action cannot be undone.')) {
-          return;
-        }
-
-        console.log('Deleting promo:', promoId, 'from collection:', collectionName);
-
-        await db.collection(collectionName).doc(promoId).delete();
-        showToast('Promo deleted successfully', 'success');
-
-        // Close modal and reload
-        const modal = document.getElementById('promoModal');
-        if (modal) {
-          bootstrap.Modal.getInstance(modal).hide();
-        }
-
-        setTimeout(() => {
-          loadPageContent('promo-vouchers');
-        }, 500);
-
+        await db.collection('facilities').doc(facilityId).update({
+          promo: firebase.firestore.FieldValue.delete(), // Remove the promo field
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Promo removed from facility: ${facilityId}`);
       } catch (error) {
-        console.error('Error deleting promo:', error);
-        showToast('Error deleting promo: ' + error.message, 'danger');
+        console.error(`Error removing promo from facility ${facilityId}:`, error);
       }
+    });
+
+    await Promise.all(updatePromises);
+    console.log(`Successfully removed promo from ${facilityIds.length} facilities`);
+
+  } catch (error) {
+    console.error('Error removing promo from facilities:', error);
+  }
+}
+
+// Enhanced deletePromo function
+async function deletePromo(promoId, collectionName = 'promos') {
+  try {
+    if (!confirm('Are you sure you want to delete this promo? This will also remove it from all associated facilities.')) {
+      return;
     }
+
+    // Get promo data first to know which facilities to update
+    const promoDoc = await db.collection(collectionName).doc(promoId).get();
+    if (promoDoc.exists) {
+      const promoData = promoDoc.data();
+      // Remove promo from facilities
+      await removePromoFromFacilities(promoData.code, promoData.facilities);
+    }
+
+    // Then delete the promo document
+    await db.collection(collectionName).doc(promoId).delete();
+    
+    showToast('Promo deleted successfully', 'success');
+    
+    // Reload the promo page
+    setTimeout(() => {
+      loadPageContent('promo-vouchers');
+    }, 500);
+
+  } catch (error) {
+    console.error('Error deleting promo:', error);
+    showToast('Error deleting promo', 'danger');
+  }
+}
 
 
     // Make sure to update the window object with the new functions
@@ -5860,218 +6387,384 @@ function refreshInsights() {
     window.deletePromo = deletePromo;
 
     async function loadReportsPage() {
-      // Fetch data for reports
-      const facilityIds = adminFacilities.map(f => f.id);
-      let bookings = [];
-      let totalRevenue = 0;
-      let monthlyRevenue = {};
+      try {
+        // Fetch real data from Firestore
+        const facilityIds = adminFacilities.map(f => f.id);
+        let reportsData = {
+          totalBookings: 0,
+          totalRevenue: 0,
+          totalCustomers: 0,
+          monthlyStats: {},
+          facilityStats: {},
+          statusDistribution: {}
+        };
 
-      if (facilityIds.length > 0) {
-        const bookingsSnapshot = await db.collection("bookings")
-          .where("facilityId", "in", facilityIds)
-          .get();
+        if (facilityIds.length > 0) {
+          const bookingsSnapshot = await db.collection("bookings")
+            .where("facilityId", "in", facilityIds)
+            .get();
 
-        bookingsSnapshot.forEach(doc => {
-          const booking = doc.data();
-          bookings.push(booking);
+          reportsData.totalBookings = bookingsSnapshot.size;
 
-          if (booking.price) {
-            totalRevenue += parseFloat(booking.price);
+          // Calculate metrics
+          const customerIds = new Set();
+          const monthlyStats = {};
+          const facilityStats = {};
+          const statusDistribution = {};
 
-            // Calculate monthly revenue
+          bookingsSnapshot.forEach(doc => {
+            const booking = doc.data();
+
+            // Total revenue
+            if (booking.price) {
+              reportsData.totalRevenue += parseFloat(booking.price);
+            }
+
+            // Unique customers
+            if (booking.userId) {
+              customerIds.add(booking.userId);
+            }
+
+            // Monthly stats
             if (booking.timestamp) {
               const month = booking.timestamp.toDate().toLocaleString('default', { month: 'short', year: 'numeric' });
-              monthlyRevenue[month] = (monthlyRevenue[month] || 0) + parseFloat(booking.price);
+              if (!monthlyStats[month]) {
+                monthlyStats[month] = { bookings: 0, revenue: 0 };
+              }
+              monthlyStats[month].bookings++;
+              if (booking.price) {
+                monthlyStats[month].revenue += parseFloat(booking.price);
+              }
             }
-          }
-        });
-      }
 
-      const months = Object.keys(monthlyRevenue);
-      const revenueData = Object.values(monthlyRevenue);
+            // Facility stats
+            const facilityName = booking.facilityName || 'Unknown';
+            if (!facilityStats[facilityName]) {
+              facilityStats[facilityName] = { bookings: 0, revenue: 0 };
+            }
+            facilityStats[facilityName].bookings++;
+            if (booking.price) {
+              facilityStats[facilityName].revenue += parseFloat(booking.price);
+            }
 
-      return `
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h3>Reports & Analytics</h3>
-          <div>
-            <button class="btn btn-primary me-2" onclick="generatePDFReport()">
-              <i class="fas fa-file-pdf me-1"></i> PDF Report
-            </button>
-            <button class="btn btn-success" onclick="exportReportData()">
-              <i class="fas fa-file-excel me-1"></i> Export Data
-            </button>
+            // Status distribution
+            const status = booking.status || 'pending';
+            statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+          });
+
+          reportsData.totalCustomers = customerIds.size;
+          reportsData.monthlyStats = monthlyStats;
+          reportsData.facilityStats = facilityStats;
+          reportsData.statusDistribution = statusDistribution;
+        }
+
+        return `
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Reports & Analytics</h3>
+        <div>
+          <button class="btn btn-primary me-2" onclick="exportReportData()">
+            <i class="fas fa-download me-1"></i> Export Report
+          </button>
+          <button class="btn btn-success" onclick="generatePDFReport()">
+            <i class="fas fa-file-pdf me-1"></i> Generate PDF
+          </button>
+        </div>
+      </div>
+      
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-calendar-check"></i>
+            <div class="number">${reportsData.totalBookings}</div>
+            <div class="label">Total Bookings</div>
           </div>
         </div>
-        
-        <div class="row mb-4">
-          <div class="col-md-3">
-            <div class="stats-card">
-              <i class="fas fa-calendar-check"></i>
-              <div class="number">${bookings.length}</div>
-              <div class="label">Total Bookings</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stats-card">
-              <i class="fas fa-dollar-sign"></i>
-              <div class="number">RM${totalRevenue.toFixed(2)}</div>
-              <div class="label">Total Revenue</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stats-card">
-              <i class="fas fa-users"></i>
-              <div class="number">${new Set(bookings.map(b => b.userId)).size}</div>
-              <div class="label">Unique Customers</div>
-            </div>
-          </div>
-          <div class="col-md-3">
-            <div class="stats-card">
-              <i class="fas fa-percentage"></i>
-              <div class="number">${adminFacilities.length > 0 ? (bookings.length / (adminFacilities.length * 30)).toFixed(1) : '0'}%</div>
-              <div class="label">Utilization Rate</div>
-            </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-dollar-sign"></i>
+            <div class="number">RM${reportsData.totalRevenue.toFixed(2)}</div>
+            <div class="label">Total Revenue</div>
           </div>
         </div>
-        
-        <div class="row">
-          <div class="col-md-8">
-            <div class="table-card">
-              <h4>Revenue Trend</h4>
-              <div class="chart-container">
-                <canvas id="reportsChart"></canvas>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="table-card">
-              <h4>Top Facilities</h4>
-              <div class="chart-container">
-                <canvas id="facilitiesChart"></canvas>
-              </div>
-            </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-users"></i>
+            <div class="number">${reportsData.totalCustomers}</div>
+            <div class="label">Total Customers</div>
           </div>
         </div>
-        
-        <div class="row mt-4">
-          <div class="col-md-6">
-            <div class="table-card">
-              <h4>Booking Status Distribution</h4>
-              <div class="chart-container">
-                <canvas id="statusChart"></canvas>
-              </div>
-            </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-chart-line"></i>
+            <div class="number">${reportsData.totalBookings > 0 ? (reportsData.totalRevenue / reportsData.totalBookings).toFixed(2) : '0'}</div>
+            <div class="label">Avg. Booking Value</div>
           </div>
-          <div class="col-md-6">
-            <div class="table-card">
-              <h4>Recent Activity</h4>
-              <div class="table-responsive">
-                <table class="table table-sm">
-                  <thead>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-6">
+          <div class="table-card">
+            <h4>Monthly Performance</h4>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Bookings</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${Object.entries(reportsData.monthlyStats).map(([month, data]) => `
                     <tr>
-                      <th>User</th>
-                      <th>Facility</th>
-                      <th>Date</th>
-                      <th>Amount</th>
+                      <td>${month}</td>
+                      <td>${data.bookings}</td>
+                      <td>RM${data.revenue.toFixed(2)}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${bookings.slice(0, 5).map(booking => `
-                      <tr>
-                        <td>${booking.userName || 'Unknown'}</td>
-                        <td>${booking.facilityName || 'Unknown'}</td>
-                        <td>${booking.date || 'N/A'}</td>
-                        <td>RM${booking.price || '0'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-      `;
+        <div class="col-md-6">
+          <div class="table-card">
+            <h4>Facility Performance</h4>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Facility</th>
+                    <th>Bookings</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${Object.entries(reportsData.facilityStats).map(([facility, data]) => `
+                    <tr>
+                      <td>${facility}</td>
+                      <td>${data.bookings}</td>
+                      <td>RM${data.revenue.toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+      } catch (error) {
+        console.error("Error loading reports page:", error);
+        return `
+      <div class="alert alert-danger">
+        <h4>Error Loading Reports</h4>
+        <p>There was an error loading reports data. Please try again.</p>
+        <button class="btn btn-primary mt-2" onclick="loadPageContent('reports')">
+          <i class="fas fa-redo me-1"></i> Retry
+        </button>
+      </div>
+    `;
+      }
     }
 
     async function loadNotificationsPage() {
-      return `
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3>Notifications</h3>
-            <div>
-                <button class="btn btn-primary me-2" onclick="createSampleNotifications()">
-                    <i class="fas fa-plus me-1"></i> Create Sample
-                </button>
-                <button class="btn btn-success" onclick="markAllAsRead()">
-                    <i class="fas fa-check-double me-1"></i> Mark All as Read
-                </button>
-            </div>
+      try {
+        // Fetch notifications from Firestore
+        let notifications = [];
+
+        try {
+          const notificationsSnapshot = await db.collection("notifications")
+            .where("adminId", "==", currentUser.uid)
+            .orderBy("timestamp", "desc")
+            .limit(50)
+            .get();
+
+          notificationsSnapshot.forEach(doc => {
+            notifications.push({
+              id: doc.id,
+              ...doc.data(),
+              timestamp: doc.data().timestamp ? doc.data().timestamp.toDate() : new Date()
+            });
+          });
+        } catch (error) {
+          console.log('No notifications collection found, using sample data');
+          // Fallback to sample notifications
+          notifications = getSampleNotifications();
+        }
+
+        let notificationsHTML = '';
+
+        if (notifications.length === 0) {
+          notificationsHTML = `
+        <div class="text-center py-5">
+          <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+          <h5 class="text-muted">No Notifications</h5>
+          <p class="text-muted">You're all caught up!</p>
         </div>
-        
-        <!-- Notification Filters -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-outline-primary active" onclick="filterNotifications('all')">
-                        All Notifications
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" onclick="filterNotifications('unread')">
-                        Unread Only
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" onclick="filterNotifications('booking')">
-                        Bookings
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" onclick="filterNotifications('payment')">
-                        Payments
-                    </button>
-                    <button type="button" class="btn btn-outline-primary" onclick="filterNotifications('system')">
-                        System
-                    </button>
-                </div>
+      `;
+        } else {
+          notifications.forEach(notification => {
+            const timeAgo = getTimeAgo(notification.timestamp);
+            notificationsHTML += `
+          <div class="list-group-item ${notification.read ? '' : 'bg-light'}">
+            <div class="d-flex w-100 justify-content-between">
+              <h6 class="mb-1">${notification.title}</h6>
+              <small class="text-muted">${timeAgo}</small>
             </div>
+            <p class="mb-1">${notification.message}</p>
+            ${!notification.read ? `
+              <button class="btn btn-sm btn-outline-primary mt-2" onclick="markNotificationAsRead('${notification.id}')">
+                Mark as Read
+              </button>
+            ` : ''}
+          </div>
+        `;
+          });
+        }
+
+        return `
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Notifications</h3>
+        <div>
+          <button class="btn btn-outline-primary me-2" onclick="markAllNotificationsAsRead()">
+            <i class="fas fa-check-double me-1"></i> Mark All as Read
+          </button>
+          <button class="btn btn-outline-danger" onclick="clearAllNotifications()">
+            <i class="fas fa-trash me-1"></i> Clear All
+          </button>
         </div>
-        
-        <!-- Notifications Container -->
-        <div class="table-card">
-            <div id="notificationsContainer">
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2">Loading notifications...</p>
-                </div>
-            </div>
+      </div>
+      
+      <div class="table-card">
+        <div class="list-group">
+          ${notificationsHTML}
         </div>
-        
-        <!-- Notification Stats -->
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <i class="fas fa-bell"></i>
-                    <div class="number" id="totalNotifications">0</div>
-                    <div class="label">Total</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <i class="fas fa-envelope"></i>
-                    <div class="number" id="unreadNotifications">0</div>
-                    <div class="label">Unread</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <i class="fas fa-calendar-check"></i>
-                    <div class="number" id="bookingNotifications">0</div>
-                    <div class="label">Booking Alerts</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stats-card">
-                    <i class="fas fa-money-bill-wave"></i>
-                    <div class="number" id="paymentNotifications">0</div>
-                    <div class="label">Payment Alerts</div>
-                </div>
-            </div>
-        </div>
+      </div>
     `;
+      } catch (error) {
+        console.error("Error loading notifications page:", error);
+        return `
+      <div class="alert alert-danger">
+        <h4>Error Loading Notifications</h4>
+        <p>There was an error loading notifications. Please try again.</p>
+        <button class="btn btn-primary mt-2" onclick="loadPageContent('notifications')">
+          <i class="fas fa-redo me-1"></i> Retry
+        </button>
+      </div>
+    `;
+      }
+    }
+
+    // Helper function for sample notifications
+    function getSampleNotifications() {
+      return [
+        {
+          id: '1',
+          title: 'New Booking Request',
+          message: 'John Doe has requested to book Badminton Court for tomorrow at 2 PM',
+          timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+          read: false
+        },
+        {
+          id: '2',
+          title: 'Payment Received',
+          message: 'Payment of RM50.00 received for booking #BK001234',
+          timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+          read: false
+        },
+        {
+          id: '3',
+          title: 'System Update',
+          message: 'New features available in the admin dashboard',
+          timestamp: new Date(Date.now() - 3600000), // 1 hour ago
+          read: true
+        }
+      ];
+    }
+
+    function getTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      let interval = seconds / 31536000;
+
+      if (interval > 1) return Math.floor(interval) + " years ago";
+      interval = seconds / 2592000;
+      if (interval > 1) return Math.floor(interval) + " months ago";
+      interval = seconds / 86400;
+      if (interval > 1) return Math.floor(interval) + " days ago";
+      interval = seconds / 3600;
+      if (interval > 1) return Math.floor(interval) + " hours ago";
+      interval = seconds / 60;
+      if (interval > 1) return Math.floor(interval) + " minutes ago";
+      return "just now";
+    }
+
+    async function loadHeaderNotifications() {
+      try {
+        const notificationsSnapshot = await db.collection("notifications")
+          .where("adminId", "==", currentUser.uid)
+          .where("read", "==", false)
+          .orderBy("timestamp", "desc")
+          .limit(5)
+          .get();
+
+        const notifications = [];
+        notificationsSnapshot.forEach(doc => {
+          notifications.push({
+            id: doc.id,
+            ...doc.data()
+          });
+        });
+
+        // Update notification badge
+        const badge = document.querySelector('.header-actions .badge');
+        if (badge) {
+          badge.textContent = notifications.length;
+        }
+
+        // Update dropdown content
+        const dropdownMenu = document.querySelector('.header-actions .dropdown-menu');
+        if (dropdownMenu) {
+          let dropdownHTML = `
+        <li><h6 class="dropdown-header">Notifications</h6></li>
+      `;
+
+          if (notifications.length === 0) {
+            dropdownHTML += `
+          <li><a class="dropdown-item text-muted" href="#">No new notifications</a></li>
+        `;
+          } else {
+            notifications.forEach(notification => {
+              dropdownHTML += `
+            <li>
+              <a class="dropdown-item" href="#" onclick="viewNotification('${notification.id}')">
+                <strong>${notification.title}</strong><br>
+                <small>${notification.message}</small>
+              </a>
+            </li>
+          `;
+            });
+          }
+
+          dropdownHTML += `
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="#" onclick="loadPageContent('notifications')">View all notifications</a></li>
+      `;
+
+          dropdownMenu.innerHTML = dropdownHTML;
+        }
+
+      } catch (error) {
+        console.error('Error loading header notifications:', error);
+      }
+    }
+
+    // Call this function after authentication
+    function initializeHeaderNotifications() {
+      loadHeaderNotifications();
+      // Refresh notifications every 30 seconds
+      setInterval(loadHeaderNotifications, 30000);
     }
     // Real-time notifications listener
     let notificationsListener = null;
@@ -6569,7 +7262,7 @@ function refreshInsights() {
         case 'ai-insights':
           setTimeout(() => {
             initializeAICharts();
-          }, 1000);
+          }, 100);
           break;
         case 'reports':
           initializeReportCharts();
@@ -6608,219 +7301,1479 @@ function refreshInsights() {
     window.filterNotifications = filterNotifications;
     window.createSampleNotifications = createSampleNotifications;
     window.createNotification = createNotification;
+
     async function loadEventsTournamentsPage() {
-      // Fetch events
-      const eventsSnapshot = await db.collection("events").get();
-      const events = [];
-      eventsSnapshot.forEach(doc => {
-        events.push({ id: doc.id, ...doc.data() });
-      });
+  try {
+    // Fetch events from Firestore
+    let eventsSnapshot;
+    let events = [];
 
-      let eventsHTML = '';
-
-      if (events.length === 0) {
-        eventsHTML = '<tr><td colspan="5" class="text-center py-4">No events found</td></tr>';
-      } else {
-        events.forEach(event => {
-          const date = event.date ? event.date.toDate().toLocaleDateString() : 'N/A';
-
-          eventsHTML += `
-            <tr>
-              <td>${event.name || 'N/A'}</td>
-              <td>${event.type || 'N/A'}</td>
-              <td>${date}</td>
-              <td>${event.participants || '0'}</td>
-              <td>
-                <button class="btn btn-sm btn-primary me-1" onclick="editEvent('${event.id}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteEvent('${event.id}')">Delete</button>
-              </td>
-            </tr>
-          `;
-        });
+    try {
+      eventsSnapshot = await db.collection("events").get();
+    } catch (error) {
+      console.log("Trying 'tournaments' collection...");
+      try {
+        eventsSnapshot = await db.collection("tournaments").get();
+      } catch (error2) {
+        console.log("No events collection found");
+        eventsSnapshot = { empty: true, forEach: () => {} };
       }
+    }
 
-      return `
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h3>Events & Tournaments</h3>
-          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEventModal">
-            <i class="fas fa-plus me-1"></i> Add New Event
-          </button>
-        </div>
+    if (eventsSnapshot && !eventsSnapshot.empty) {
+      eventsSnapshot.forEach(doc => {
+        const eventData = doc.data();
+        events.push({
+          id: doc.id,
+          ...eventData,
+          // Ensure proper date formatting
+          startDate: eventData.startDate ? eventData.startDate.toDate() : null,
+          endDate: eventData.endDate ? eventData.endDate.toDate() : null,
+          registrationDeadline: eventData.registrationDeadline ? eventData.registrationDeadline.toDate() : null
+        });
+      });
+    }
+
+    let eventsHTML = '';
+
+    if (events.length === 0) {
+      eventsHTML = `
+        <tr>
+          <td colspan="7" class="text-center py-4">
+            <div class="text-muted">
+              <i class="fas fa-trophy fa-2x mb-3"></i>
+              <p>No events or tournaments found</p>
+              <small>Create your first event to get started</small>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      events.forEach(event => {
+        const startDate = event.startDate ? event.startDate.toLocaleDateString() : 'N/A';
+        const endDate = event.endDate ? event.endDate.toLocaleDateString() : 'N/A';
+        const registrationDeadline = event.registrationDeadline ? event.registrationDeadline.toLocaleDateString() : 'N/A';
         
-        <div class="table-card">
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>Event Name</th>
-                  <th>Type</th>
-                  <th>Date</th>
-                  <th>Participants</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${eventsHTML}
-              </tbody>
-            </table>
+        // Check event status
+        const now = new Date();
+        let status = 'Upcoming';
+        let statusClass = 'bg-primary';
+        
+        if (event.startDate && event.startDate < now) {
+          status = 'Ongoing';
+          statusClass = 'bg-success';
+        }
+        if (event.endDate && event.endDate < now) {
+          status = 'Completed';
+          statusClass = 'bg-secondary';
+        }
+        if (event.status === 'cancelled') {
+          status = 'Cancelled';
+          statusClass = 'bg-danger';
+        }
+
+        eventsHTML += `
+          <tr>
+            <td>
+              <div class="fw-semibold">${event.name || 'N/A'}</div>
+              <small class="text-muted">${event.description ? event.description.substring(0, 50) + '...' : 'No description'}</small>
+            </td>
+            <td>${event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : 'N/A'}</td>
+            <td>${event.sport || 'N/A'}</td>
+            <td>${startDate}</td>
+            <td>${endDate}</td>
+            <td>${event.participants ? event.participants.length : 0}/${event.maxParticipants || '∞'}</td>
+            <td>
+              <span class="badge ${statusClass}">${status}</span>
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-primary me-1" onclick="viewEvent('${event.id}')" title="View Details">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-warning me-1" onclick="editEvent('${event.id}')" title="Edit Event">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteEvent('${event.id}')" title="Delete Event">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    return `
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Events & Tournaments Management</h3>
+        <button class="btn btn-primary" onclick="showEventModal()">
+          <i class="fas fa-plus me-1"></i> Add New Event
+        </button>
+      </div>
+      
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-trophy"></i>
+            <div class="number">${events.length}</div>
+            <div class="label">Total Events</div>
           </div>
         </div>
-        
-        <!-- Add Event Modal -->
-        <div class="modal fade" id="addEventModal" tabindex="-1">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">Add New Event</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body">
-                <form id="addEventForm">
-                  <div class="form-group">
-                    <label class="form-label">Event Name</label>
-                    <input type="text" class="form-control" name="name" required>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-running"></i>
+            <div class="number">${events.filter(e => {
+              const now = new Date();
+              return e.startDate && e.startDate > now;
+            }).length}</div>
+            <div class="label">Upcoming Events</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-users"></i>
+            <div class="number">${events.reduce((sum, event) => sum + (event.participants ? event.participants.length : 0), 0)}</div>
+            <div class="label">Total Participants</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-basketball-ball"></i>
+            <div class="number">${new Set(events.map(e => e.sport)).size}</div>
+            <div class="label">Sports Covered</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Event Name & Description</th>
+                <th>Type</th>
+                <th>Sport</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Participants</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTableBody">
+              ${eventsHTML}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error("Error loading events page:", error);
+    return `
+      <div class="alert alert-danger">
+        <h4>Error Loading Events</h4>
+        <p>There was an error loading events data. Please try again.</p>
+        <button class="btn btn-primary mt-2" onclick="loadPageContent('events-tournaments')">
+          <i class="fas fa-redo me-1"></i> Retry
+        </button>
+      </div>
+    `;
+  }
+}
+
+// Show Event Modal Function
+function showEventModal(eventId = null, eventData = null) {
+  console.log('Showing event modal for:', eventId ? 'edit' : 'create');
+  
+  const modalContent = `
+    <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="eventModalLabel">${eventId ? 'Edit Event' : 'Create New Event'}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="eventForm">
+              <input type="hidden" id="eventId" value="${eventId || ''}">
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Event Name *</label>
+                    <input type="text" class="form-control" id="eventName" 
+                           value="${eventData?.name || ''}" 
+                           placeholder="Summer Basketball Tournament" required>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Type</label>
-                    <select class="form-select" name="type" required>
-                      <option value="Tournament">Tournament</option>
-                      <option value="Workshop">Workshop</option>
-                      <option value="Exhibition">Exhibition</option>
-                      <option value="Competition">Competition</option>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Event Type *</label>
+                    <select class="form-select" id="eventType" required>
+                      <option value="">Select Type</option>
+                      <option value="tournament" ${eventData?.type === 'tournament' ? 'selected' : ''}>Tournament</option>
+                      <option value="competition" ${eventData?.type === 'competition' ? 'selected' : ''}>Competition</option>
+                      <option value="league" ${eventData?.type === 'league' ? 'selected' : ''}>League</option>
+                      <option value="friendly" ${eventData?.type === 'friendly' ? 'selected' : ''}>Friendly Match</option>
+                      <option value="training" ${eventData?.type === 'training' ? 'selected' : ''}>Training Camp</option>
+                      <option value="workshop" ${eventData?.type === 'workshop' ? 'selected' : ''}>Workshop</option>
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-control" name="date" required>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-control" name="description" rows="3"></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Max Participants</label>
-                    <input type="number" class="form-control" name="maxParticipants" min="1">
-                  </div>
-                </form>
+                </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveEvent()">Save Event</button>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Sport *</label>
+                    <select class="form-select" id="eventSport" required>
+                      <option value="">Select Sport</option>
+                      <option value="Badminton" ${eventData?.sport === 'Badminton' ? 'selected' : ''}>Badminton</option>
+                      <option value="Basketball" ${eventData?.sport === 'Basketball' ? 'selected' : ''}>Basketball</option>
+                      <option value="Tennis" ${eventData?.sport === 'Tennis' ? 'selected' : ''}>Tennis</option>
+                      <option value="Football" ${eventData?.sport === 'Football' ? 'selected' : ''}>Football</option>
+                      <option value="Swimming" ${eventData?.sport === 'Swimming' ? 'selected' : ''}>Swimming</option>
+                      <option value="Gym" ${eventData?.sport === 'Gym' ? 'selected' : ''}>Gym & Fitness</option>
+                      <option value="Other" ${eventData?.sport === 'Other' ? 'selected' : ''}>Other</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Facility</label>
+                    <select class="form-select" id="eventFacility">
+                      <option value="">Select Facility (Optional)</option>
+                      ${adminFacilities.map(facility => 
+                        `<option value="${facility.id}" ${eventData?.facilityId === facility.id ? 'selected' : ''}>
+                          ${facility.name} (${facility.type})
+                        </option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Start Date & Time *</label>
+                    <input type="datetime-local" class="form-control" id="eventStartDate" 
+                           value="${eventData?.startDate ? eventData.startDate.toISOString().slice(0, 16) : ''}" required>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">End Date & Time *</label>
+                    <input type="datetime-local" class="form-control" id="eventEndDate" 
+                           value="${eventData?.endDate ? eventData.endDate.toISOString().slice(0, 16) : ''}" required>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Registration Deadline</label>
+                    <input type="datetime-local" class="form-control" id="eventRegDeadline" 
+                           value="${eventData?.registrationDeadline ? eventData.registrationDeadline.toISOString().slice(0, 16) : ''}">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Max Participants</label>
+                    <input type="number" class="form-control" id="eventMaxParticipants" 
+                           value="${eventData?.maxParticipants || ''}" 
+                           min="1" placeholder="No limit">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Entry Fee (RM)</label>
+                    <input type="number" class="form-control" id="eventEntryFee" 
+                           value="${eventData?.entryFee || ''}" 
+                           min="0" step="0.01" placeholder="Free event">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Prize Pool (RM)</label>
+                    <input type="number" class="form-control" id="eventPrizePool" 
+                           value="${eventData?.prizePool || ''}" 
+                           min="0" step="0.01" placeholder="No prize pool">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="eventDescription" rows="3" 
+                          placeholder="Describe the event, rules, requirements...">${eventData?.description || ''}</textarea>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Rules & Regulations</label>
+                <textarea class="form-control" id="eventRules" rows="3" 
+                          placeholder="Event rules, format, scoring system...">${eventData?.rules || ''}</textarea>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Contact Information</label>
+                <input type="text" class="form-control" id="eventContact" 
+                       value="${eventData?.contactInfo || ''}" 
+                       placeholder="Email or phone for inquiries">
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="eventPublic" ${eventData?.isPublic !== false ? 'checked' : ''}>
+                    <label class="form-check-label" for="eventPublic">
+                      Public Event (Visible to all users)
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="eventActive" ${eventData?.status !== 'inactive' ? 'checked' : ''}>
+                    <label class="form-check-label" for="eventActive">
+                      Active Event
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            ${eventId ? `
+              <button type="button" class="btn btn-danger" onclick="deleteEvent('${eventId}')">Delete Event</button>
+            ` : ''}
+            <button type="button" class="btn btn-primary" onclick="saveEvent()">${eventId ? 'Update' : 'Create'} Event</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Remove existing modal if any
+  const existingModal = document.getElementById('eventModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Add modal to page
+  document.body.insertAdjacentHTML('beforeend', modalContent);
+
+  // Set default dates if creating new event
+  if (!eventId) {
+    setTimeout(() => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      
+      const nextWeek = new Date(now);
+      nextWeek.setDate(now.getDate() + 7);
+
+      document.getElementById('eventStartDate').value = tomorrow.toISOString().slice(0, 16);
+      document.getElementById('eventEndDate').value = nextWeek.toISOString().slice(0, 16);
+      document.getElementById('eventRegDeadline').value = now.toISOString().slice(0, 16);
+    }, 100);
+  }
+
+  // Show modal
+  const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
+  eventModal.show();
+
+  // Remove modal when hidden
+  document.getElementById('eventModal').addEventListener('hidden.bs.modal', function () {
+    this.remove();
+  });
+}
+
+// Save Event Function
+async function saveEvent() {
+  try {
+    // Get form values
+    const eventId = document.getElementById('eventId').value;
+    const eventName = document.getElementById('eventName').value;
+    const eventType = document.getElementById('eventType').value;
+    const eventSport = document.getElementById('eventSport').value;
+    const eventFacility = document.getElementById('eventFacility').value;
+    const eventStartDate = document.getElementById('eventStartDate').value;
+    const eventEndDate = document.getElementById('eventEndDate').value;
+    const eventRegDeadline = document.getElementById('eventRegDeadline').value;
+    const eventMaxParticipants = document.getElementById('eventMaxParticipants').value;
+    const eventEntryFee = document.getElementById('eventEntryFee').value;
+    const eventPrizePool = document.getElementById('eventPrizePool').value;
+    const eventDescription = document.getElementById('eventDescription').value;
+    const eventRules = document.getElementById('eventRules').value;
+    const eventContact = document.getElementById('eventContact').value;
+    const eventPublic = document.getElementById('eventPublic').checked;
+    const eventActive = document.getElementById('eventActive').checked;
+
+    // Validation
+    if (!eventName || !eventType || !eventSport || !eventStartDate || !eventEndDate) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+
+    if (new Date(eventStartDate) >= new Date(eventEndDate)) {
+      showToast('End date must be after start date', 'warning');
+      return;
+    }
+
+    // Prepare event data
+    const eventData = {
+      name: eventName,
+      type: eventType,
+      sport: eventSport,
+      facilityId: eventFacility || null,
+      startDate: firebase.firestore.Timestamp.fromDate(new Date(eventStartDate)),
+      endDate: firebase.firestore.Timestamp.fromDate(new Date(eventEndDate)),
+      description: eventDescription,
+      rules: eventRules,
+      contactInfo: eventContact,
+      isPublic: eventPublic,
+      status: eventActive ? 'active' : 'inactive',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Add optional fields if provided
+    if (eventRegDeadline) {
+      eventData.registrationDeadline = firebase.firestore.Timestamp.fromDate(new Date(eventRegDeadline));
+    }
+    if (eventMaxParticipants) {
+      eventData.maxParticipants = parseInt(eventMaxParticipants);
+    }
+    if (eventEntryFee) {
+      eventData.entryFee = parseFloat(eventEntryFee);
+    }
+    if (eventPrizePool) {
+      eventData.prizePool = parseFloat(eventPrizePool);
+    }
+
+    // Add createdBy for new events
+    if (!eventId) {
+      eventData.createdBy = currentUser.uid;
+      eventData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      eventData.participants = [];
+    }
+
+    // Save to Firestore
+    if (eventId) {
+      // Update existing event
+      await db.collection("events").doc(eventId).update(eventData);
+      showToast('Event updated successfully', 'success');
+    } else {
+      // Create new event
+      await db.collection("events").add(eventData);
+      showToast('Event created successfully', 'success');
+    }
+
+    // Close modal and refresh page
+    const modal = bootstrap.Modal.getInstance(document.getElementById('eventModal'));
+    modal.hide();
+    
+    // Refresh events page
+    loadPageContent('events-tournaments');
+
+  } catch (error) {
+    console.error('Error saving event:', error);
+    showToast('Error saving event: ' + error.message, 'danger');
+  }
+}
+
+// Enhanced View Event Function with detailed modal
+async function viewEvent(eventId) {
+  try {
+    console.log('Viewing event ID:', eventId);
+
+    if (!eventId) {
+      showToast('Invalid event ID', 'danger');
+      return;
+    }
+
+    // Fetch event details
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    
+    if (!eventDoc.exists) {
+      showToast('Event not found', 'danger');
+      return;
+    }
+
+    const event = eventDoc.data();
+    console.log('Event data loaded:', event);
+
+    // Format dates for display
+    const startDate = event.startDate ? event.startDate.toDate() : null;
+    const endDate = event.endDate ? event.endDate.toDate() : null;
+    const registrationDeadline = event.registrationDeadline ? event.registrationDeadline.toDate() : null;
+    const createdAt = event.createdAt ? event.createdAt.toDate() : null;
+
+    // Calculate event status
+    const now = new Date();
+    let status = 'Upcoming';
+    let statusClass = 'bg-primary';
+    let statusIcon = 'fas fa-clock';
+    
+    if (startDate && startDate < now) {
+      status = 'Ongoing';
+      statusClass = 'bg-success';
+      statusIcon = 'fas fa-play-circle';
+    }
+    if (endDate && endDate < now) {
+      status = 'Completed';
+      statusClass = 'bg-secondary';
+      statusIcon = 'fas fa-flag-checkered';
+    }
+    if (event.status === 'cancelled') {
+      status = 'Cancelled';
+      statusClass = 'bg-danger';
+      statusIcon = 'fas fa-times-circle';
+    }
+    if (event.status === 'inactive') {
+      status = 'Inactive';
+      statusClass = 'bg-warning';
+      statusIcon = 'fas fa-pause-circle';
+    }
+
+    // Get facility name if available
+    let facilityName = 'Not specified';
+    if (event.facilityId) {
+      const facility = adminFacilities.find(f => f.id === event.facilityId);
+      if (facility) {
+        facilityName = facility.name;
+      }
+    }
+
+    // Get participant count
+    const participantCount = event.participants ? event.participants.length : 0;
+    const maxParticipants = event.maxParticipants || 'No limit';
+    const participationRate = event.maxParticipants ? 
+      Math.round((participantCount / event.maxParticipants) * 100) : 100;
+
+    // Format currency values
+    const entryFee = event.entryFee ? `RM${parseFloat(event.entryFee).toFixed(2)}` : 'Free';
+    const prizePool = event.prizePool ? `RM${parseFloat(event.prizePool).toFixed(2)}` : 'No prize pool';
+
+    // Create detailed modal content
+    const modalContent = `
+      <div class="modal fade" id="viewEventModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+            <div class="modal-header bg-light">
+              <div class="d-flex align-items-center">
+                <i class="fas fa-trophy fa-2x text-warning me-3"></i>
+                <div>
+                  <h5 class="modal-title mb-0">${event.name || 'Unnamed Event'}</h5>
+                  <div class="d-flex align-items-center mt-1">
+                    <span class="badge ${statusClass} me-2">
+                      <i class="${statusIcon} me-1"></i>${status}
+                    </span>
+                    <small class="text-muted">${event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : 'Event'} • ${event.sport || 'Sport'}</small>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <!-- Left Column - Event Details -->
+                <div class="col-md-8">
+                  ${event.description ? `
+                    <div class="card mb-4">
+                      <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Event Description</h6>
+                      </div>
+                      <div class="card-body">
+                        <p class="mb-0">${event.description}</p>
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  ${event.rules ? `
+                    <div class="card mb-4">
+                      <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-gavel me-2"></i>Rules & Regulations</h6>
+                      </div>
+                      <div class="card-body">
+                        <p class="mb-0">${event.rules}</p>
+                      </div>
+                    </div>
+                  ` : ''}
+
+                  <!-- Event Schedule -->
+                  <div class="card mb-4">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Event Schedule</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="row">
+                        <div class="col-md-6">
+                          <p><strong>Start Date:</strong><br>
+                            ${startDate ? startDate.toLocaleString() : 'Not set'}
+                          </p>
+                          <p><strong>End Date:</strong><br>
+                            ${endDate ? endDate.toLocaleString() : 'Not set'}
+                          </p>
+                        </div>
+                        <div class="col-md-6">
+                          ${registrationDeadline ? `
+                            <p><strong>Registration Deadline:</strong><br>
+                              ${registrationDeadline.toLocaleString()}
+                            </p>
+                          ` : ''}
+                          <p><strong>Duration:</strong><br>
+                            ${startDate && endDate ? 
+                              Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + ' days' : 
+                              'Not specified'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right Column - Event Info & Statistics -->
+                <div class="col-md-4">
+                  <!-- Quick Info Card -->
+                  <div class="card mb-4">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-list-alt me-2"></i>Event Information</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="mb-3">
+                        <strong>Sport:</strong><br>
+                        <span class="badge bg-primary">${event.sport || 'Not specified'}</span>
+                      </div>
+                      <div class="mb-3">
+                        <strong>Type:</strong><br>
+                        ${event.type ? event.type.charAt(0).toUpperCase() + event.type.slice(1) : 'Not specified'}
+                      </div>
+                      <div class="mb-3">
+                        <strong>Facility:</strong><br>
+                        ${facilityName}
+                      </div>
+                      <div class="mb-3">
+                        <strong>Entry Fee:</strong><br>
+                        ${entryFee}
+                      </div>
+                      ${event.prizePool ? `
+                        <div class="mb-3">
+                          <strong>Prize Pool:</strong><br>
+                          ${prizePool}
+                        </div>
+                      ` : ''}
+                      ${event.contactInfo ? `
+                        <div class="mb-3">
+                          <strong>Contact:</strong><br>
+                          ${event.contactInfo}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </div>
+
+                  <!-- Participation Card -->
+                  <div class="card mb-4">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-users me-2"></i>Participation</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="text-center mb-3">
+                        <div class="display-6 fw-bold text-primary">${participantCount}</div>
+                        <div class="text-muted">Participants Registered</div>
+                      </div>
+                      
+                      ${event.maxParticipants ? `
+                        <div class="mb-3">
+                          <div class="d-flex justify-content-between mb-1">
+                            <small>Capacity</small>
+                            <small>${participantCount}/${maxParticipants}</small>
+                          </div>
+                          <div class="progress" style="height: 8px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: ${participationRate}%" 
+                                 aria-valuenow="${participationRate}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                          </div>
+                          <small class="text-muted">${participationRate}% filled</small>
+                        </div>
+                      ` : ''}
+
+                      <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="viewParticipants('${eventId}')">
+                          <i class="fas fa-list me-1"></i> View Participants
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Event Visibility -->
+                  <div class="card">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-eye me-2"></i>Visibility</h6>
+                    </div>
+                    <div class="card-body">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span>Event is <strong>${event.isPublic !== false ? 'Public' : 'Private'}</strong></span>
+                        <i class="fas ${event.isPublic !== false ? 'fa-globe text-success' : 'fa-lock text-warning'}"></i>
+                      </div>
+                      ${createdAt ? `
+                        <hr>
+                        <small class="text-muted">
+                          Created: ${createdAt.toLocaleDateString()}
+                        </small>
+                      ` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="row mt-4">
+                <div class="col-12">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <button class="btn btn-outline-secondary me-2" onclick="exportEventData('${eventId}')">
+                        <i class="fas fa-download me-1"></i> Export Data
+                      </button>
+                    </div>
+                    <div>
+                      <button class="btn btn-warning me-2" onclick="editEvent('${eventId}')">
+                        <i class="fas fa-edit me-1"></i> Edit Event
+                      </button>
+                      <button class="btn btn-danger" onclick="deleteEvent('${eventId}')">
+                        <i class="fas fa-trash me-1"></i> Delete Event
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      `;
+      </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('viewEventModal');
+    if (existingModal) {
+      existingModal.remove();
     }
+
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('viewEventModal'));
+    modal.show();
+
+    // Remove modal from DOM when hidden
+    document.getElementById('viewEventModal').addEventListener('hidden.bs.modal', function () {
+      this.remove();
+    });
+
+  } catch (error) {
+    console.error('Error viewing event:', error);
+    showToast('Error loading event details: ' + error.message, 'danger');
+  }
+}
+
+// Additional helper functions for event management
+async function viewParticipants(eventId) {
+  try {
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+      showToast('Event not found', 'danger');
+      return;
+    }
+
+    const event = eventDoc.data();
+    const participants = event.participants || [];
+    
+    if (participants.length === 0) {
+      showToast('No participants registered for this event', 'info');
+      return;
+    }
+
+    // You can implement a detailed participants modal here
+    showToast(`Viewing ${participants.length} participants for this event`, 'info');
+    
+    // For now, just show a simple alert with participant count
+    alert(`This event has ${participants.length} participant(s) registered.`);
+    
+  } catch (error) {
+    console.error('Error viewing participants:', error);
+    showToast('Error loading participants', 'danger');
+  }
+}
+
+async function exportEventData(eventId) {
+  try {
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+      showToast('Event not found', 'danger');
+      return;
+    }
+
+    const event = eventDoc.data();
+    
+    // Create CSV data
+    const csvData = [
+      ['Event ID', eventId],
+      ['Event Name', event.name || ''],
+      ['Sport', event.sport || ''],
+      ['Type', event.type || ''],
+      ['Start Date', event.startDate ? event.startDate.toDate().toLocaleString() : ''],
+      ['End Date', event.endDate ? event.endDate.toDate().toLocaleString() : ''],
+      ['Participants', event.participants ? event.participants.length : 0],
+      ['Max Participants', event.maxParticipants || 'No limit'],
+      ['Entry Fee', event.entryFee ? `RM${event.entryFee}` : 'Free'],
+      ['Prize Pool', event.prizePool ? `RM${event.prizePool}` : 'No prize pool'],
+      ['Status', event.status || 'active']
+    ];
+
+    // Convert to CSV string
+    const csvContent = csvData.map(row => row.map(field => `"${field}"`).join(',')).join('\n');
+    
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `event_${eventId}_data.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showToast('Event data exported successfully', 'success');
+    
+  } catch (error) {
+    console.error('Error exporting event data:', error);
+    showToast('Error exporting event data', 'danger');
+  }
+}
+
+// Edit Event Function
+async function editEvent(eventId) {
+  try {
+    const eventDoc = await db.collection("events").doc(eventId).get();
+    if (!eventDoc.exists) {
+      showToast('Event not found', 'danger');
+      return;
+    }
+
+    const eventData = eventDoc.data();
+    showEventModal(eventId, eventData);
+  } catch (error) {
+    console.error('Error editing event:', error);
+    showToast('Error loading event for editing', 'danger');
+  }
+}
+
+// Delete Event Function
+async function deleteEvent(eventId) {
+  try {
+    if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) {
+      return;
+    }
+
+    await db.collection("events").doc(eventId).delete();
+    showToast('Event deleted successfully', 'success');
+    
+    // Refresh events page
+    loadPageContent('events-tournaments');
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    showToast('Error deleting event', 'danger');
+  }
+}
 
     async function loadMarketplacePage() {
-      // Fetch products
-      const productsSnapshot = await db.collection("products").get();
-      const products = [];
+  try {
+    // Fetch products from Firestore
+    let productsSnapshot;
+    let products = [];
+
+    try {
+      productsSnapshot = await db.collection("products").get();
+    } catch (error) {
+      console.log("No products collection found");
+      productsSnapshot = { empty: true, forEach: () => {} };
+    }
+
+    if (productsSnapshot && !productsSnapshot.empty) {
       productsSnapshot.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
-
-      let productsHTML = '';
-
-      if (products.length === 0) {
-        productsHTML = '<tr><td colspan="6" class="text-center py-4">No products found</td></tr>';
-      } else {
-        products.forEach(product => {
-          productsHTML += `
-            <tr>
-              <td>${product.name || 'N/A'}</td>
-              <td>${product.category || 'N/A'}</td>
-              <td>RM${product.price || '0'}</td>
-              <td>${product.stock || '0'}</td>
-              <td>${product.status || 'Active'}</td>
-              <td>
-                <button class="btn btn-sm btn-primary me-1" onclick="editProduct('${product.id}')">Edit</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteProduct('${product.id}')">Delete</button>
-              </td>
-            </tr>
-          `;
+        const productData = doc.data();
+        products.push({
+          id: doc.id,
+          ...productData,
+          // Ensure proper date formatting
+          createdAt: productData.createdAt ? productData.createdAt.toDate() : null,
+          updatedAt: productData.updatedAt ? productData.updatedAt.toDate() : null
         });
-      }
+      });
+    }
 
-      return `
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h3>Marketplace</h3>
-          <button class="btn btn-primary" onclick="showPromoModal()">
-            <i class="fas fa-plus me-1"></i> Add New Product
-          </button>
-        </div>
+    let productsHTML = '';
+
+    if (products.length === 0) {
+      productsHTML = `
+        <tr>
+          <td colspan="8" class="text-center py-4">
+            <div class="text-muted">
+              <i class="fas fa-store fa-2x mb-3"></i>
+              <p>No products found in marketplace</p>
+              <small>Add your first product to get started</small>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      products.forEach(product => {
+        const createdAt = product.createdAt ? product.createdAt.toLocaleDateString() : 'N/A';
+        const price = product.price ? `RM${parseFloat(product.price).toFixed(2)}` : 'N/A';
+        const stock = product.stock || 0;
+        const status = product.status || 'active';
         
-        <div class="table-card">
-          <div class="table-responsive">
-            <table class="table table-hover">
-              <thead>
-                <tr>
-                  <th>Product Name</th>
-                  <th>Category</th>
-                  <th>Price</th>
-                  <th>Stock</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${productsHTML}
-              </tbody>
-            </table>
+        // Determine stock status
+        let stockStatus = 'In Stock';
+        let stockClass = 'bg-success';
+        
+        if (stock === 0) {
+          stockStatus = 'Out of Stock';
+          stockClass = 'bg-danger';
+        } else if (stock < 10) {
+          stockStatus = 'Low Stock';
+          stockClass = 'bg-warning';
+        }
+
+        productsHTML += `
+          <tr>
+            <td>
+              <div class="d-flex align-items-center">
+                <img src="${product.imageUrl || 'https://via.placeholder.com/50x50?text=No+Image'}" 
+                     class="rounded me-3" width="50" height="50" 
+                     alt="${product.name}" 
+                     style="object-fit: cover;"
+                     onerror="this.src='https://via.placeholder.com/50x50?text=No+Image'">
+                <div>
+                  <div class="fw-semibold">${product.name || 'Unnamed Product'}</div>
+                  <small class="text-muted">${product.category || 'Uncategorized'}</small>
+                </div>
+              </div>
+            </td>
+            <td>${product.category || 'N/A'}</td>
+            <td>${product.brand || 'N/A'}</td>
+            <td>${price}</td>
+            <td>
+              <span class="badge ${stockClass}">${stockStatus}</span>
+              <small class="text-muted d-block">${stock} units</small>
+            </td>
+            <td>${createdAt}</td>
+            <td>
+              <span class="badge ${status === 'active' ? 'bg-success' : status === 'inactive' ? 'bg-secondary' : 'bg-warning'}">
+                ${status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-primary me-1" onclick="viewProduct('${product.id}')" title="View Details">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-warning me-1" onclick="editProduct('${product.id}')" title="Edit Product">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteProduct('${product.id}')" title="Delete Product">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    return `
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>Marketplace Management</h3>
+        <button class="btn btn-primary" onclick="showProductModal()">
+          <i class="fas fa-plus me-1"></i> Add New Product
+        </button>
+      </div>
+      
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-cube"></i>
+            <div class="number">${products.length}</div>
+            <div class="label">Total Products</div>
           </div>
         </div>
-        
-        <!-- Add Product Modal -->
-        <div class="modal fade" id="addProductModal" tabindex="-1">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">Add New Product</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body">
-                <form id="addProductForm">
-                  <div class="form-group">
-                    <label class="form-label">Product Name</label>
-                    <input type="text" class="form-control" name="name" required>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-check-circle"></i>
+            <div class="number">${products.filter(p => p.status === 'active').length}</div>
+            <div class="label">Active Products</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-box-open"></i>
+            <div class="number">${products.filter(p => (p.stock || 0) === 0).length}</div>
+            <div class="label">Out of Stock</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stats-card">
+            <i class="fas fa-tags"></i>
+            <div class="number">${new Set(products.map(p => p.category)).size}</div>
+            <div class="label">Categories</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Category</th>
+                <th>Brand</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Added</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              ${productsHTML}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    console.error("Error loading marketplace page:", error);
+    return `
+      <div class="alert alert-danger">
+        <h4>Error Loading Products</h4>
+        <p>There was an error loading marketplace data. Please try again.</p>
+        <button class="btn btn-primary mt-2" onclick="loadPageContent('marketplace')">
+          <i class="fas fa-redo me-1"></i> Retry
+        </button>
+      </div>
+    `;
+  }
+}
+
+// Show Product Modal Function
+function showProductModal(productId = null, productData = null) {
+  console.log('Showing product modal for:', productId ? 'edit' : 'create');
+  
+  const modalContent = `
+    <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="productModalLabel">${productId ? 'Edit Product' : 'Add New Product'}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="productForm">
+              <input type="hidden" id="productId" value="${productId || ''}">
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Product Name *</label>
+                    <input type="text" class="form-control" id="productName" 
+                           value="${productData?.name || ''}" 
+                           placeholder="e.g., Professional Basketball" required>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Category</label>
-                    <select class="form-select" name="category" required>
-                      <option value="Sports Equipment">Sports Equipment</option>
-                      <option value="Apparel">Apparel</option>
-                      <option value="Accessories">Accessories</option>
-                      <option value="Nutrition">Nutrition</option>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Brand</label>
+                    <input type="text" class="form-control" id="productBrand" 
+                           value="${productData?.brand || ''}" 
+                           placeholder="e.g., Nike, Adidas">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Category *</label>
+                    <select class="form-select" id="productCategory" required>
+                      <option value="">Select Category</option>
+                      <option value="Sports Equipment" ${productData?.category === 'Sports Equipment' ? 'selected' : ''}>Sports Equipment</option>
+                      <option value="Apparel" ${productData?.category === 'Apparel' ? 'selected' : ''}>Apparel</option>
+                      <option value="Footwear" ${productData?.category === 'Footwear' ? 'selected' : ''}>Footwear</option>
+                      <option value="Accessories" ${productData?.category === 'Accessories' ? 'selected' : ''}>Accessories</option>
+                      <option value="Nutrition" ${productData?.category === 'Nutrition' ? 'selected' : ''}>Nutrition & Supplements</option>
+                      <option value="Recovery" ${productData?.category === 'Recovery' ? 'selected' : ''}>Recovery Equipment</option>
+                      <option value="Other" ${productData?.category === 'Other' ? 'selected' : ''}>Other</option>
                     </select>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Price (RM)</label>
-                    <input type="number" class="form-control" name="price" min="0" step="0.01" required>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">SKU (Stock Keeping Unit)</label>
+                    <input type="text" class="form-control" id="productSKU" 
+                           value="${productData?.sku || ''}" 
+                           placeholder="e.g., PRO-BBALL-001">
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Stock</label>
-                    <input type="number" class="form-control" name="stock" min="0" required>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-control" name="description" rows="3"></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Image URL</label>
-                    <input type="url" class="form-control" name="imageUrl" placeholder="https://example.com/product.jpg">
-                  </div>
-                </form>
+                </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="saveProduct()">Save Product</button>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Price (RM) *</label>
+                    <input type="number" class="form-control" id="productPrice" 
+                           value="${productData?.price || ''}" 
+                           min="0" step="0.01" placeholder="0.00" required>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Stock Quantity *</label>
+                    <input type="number" class="form-control" id="productStock" 
+                           value="${productData?.stock || ''}" 
+                           min="0" placeholder="0" required>
+                  </div>
+                </div>
               </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Cost Price (RM)</label>
+                    <input type="number" class="form-control" id="productCost" 
+                           value="${productData?.costPrice || ''}" 
+                           min="0" step="0.01" placeholder="Cost price for profit calculation">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group mb-3">
+                    <label class="form-label">Weight (kg)</label>
+                    <input type="number" class="form-control" id="productWeight" 
+                           value="${productData?.weight || ''}" 
+                           min="0" step="0.01" placeholder="For shipping calculation">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Product Image URL</label>
+                <input type="url" class="form-control" id="productImage" 
+                       value="${productData?.imageUrl || ''}" 
+                       placeholder="https://example.com/product-image.jpg">
+                <small class="form-text text-muted">Direct link to product image</small>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="productDescription" rows="3" 
+                          placeholder="Describe the product features, specifications...">${productData?.description || ''}</textarea>
+              </div>
+              
+              <div class="form-group mb-3">
+                <label class="form-label">Features/Benefits</label>
+                <textarea class="form-control" id="productFeatures" rows="3" 
+                          placeholder="List key features and benefits...">${productData?.features || ''}</textarea>
+                <small class="form-text text-muted">Separate features with new lines</small>
+              </div>
+              
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="productFeatured" ${productData?.featured ? 'checked' : ''}>
+                    <label class="form-check-label" for="productFeatured">
+                      Featured Product
+                    </label>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="productActive" ${productData?.status !== 'inactive' ? 'checked' : ''}>
+                    <label class="form-check-label" for="productActive">
+                      Active Product
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            ${productId ? `
+              <button type="button" class="btn btn-danger" onclick="deleteProduct('${productId}')">Delete Product</button>
+            ` : ''}
+            <button type="button" class="btn btn-primary" onclick="saveProduct()">${productId ? 'Update' : 'Create'} Product</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Remove existing modal if any
+  const existingModal = document.getElementById('productModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Add modal to page
+  document.body.insertAdjacentHTML('beforeend', modalContent);
+
+  // Show modal
+  const productModal = new bootstrap.Modal(document.getElementById('productModal'));
+  productModal.show();
+
+  // Remove modal when hidden
+  document.getElementById('productModal').addEventListener('hidden.bs.modal', function () {
+    this.remove();
+  });
+}
+
+// Save Product Function
+async function saveProduct() {
+  try {
+    // Get form values
+    const productId = document.getElementById('productId').value;
+    const productName = document.getElementById('productName').value;
+    const productBrand = document.getElementById('productBrand').value;
+    const productCategory = document.getElementById('productCategory').value;
+    const productSKU = document.getElementById('productSKU').value;
+    const productPrice = document.getElementById('productPrice').value;
+    const productStock = document.getElementById('productStock').value;
+    const productCost = document.getElementById('productCost').value;
+    const productWeight = document.getElementById('productWeight').value;
+    const productImage = document.getElementById('productImage').value;
+    const productDescription = document.getElementById('productDescription').value;
+    const productFeatures = document.getElementById('productFeatures').value;
+    const productFeatured = document.getElementById('productFeatured').checked;
+    const productActive = document.getElementById('productActive').checked;
+
+    // Validation
+    if (!productName || !productCategory || !productPrice || !productStock) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+
+    if (parseFloat(productPrice) < 0) {
+      showToast('Price cannot be negative', 'warning');
+      return;
+    }
+
+    if (parseInt(productStock) < 0) {
+      showToast('Stock quantity cannot be negative', 'warning');
+      return;
+    }
+
+    // Prepare product data
+    const productData = {
+      name: productName,
+      brand: productBrand || null,
+      category: productCategory,
+      sku: productSKU || null,
+      price: parseFloat(productPrice),
+      stock: parseInt(productStock),
+      description: productDescription || null,
+      features: productFeatures || null,
+      featured: productFeatured,
+      status: productActive ? 'active' : 'inactive',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    // Add optional fields if provided
+    if (productCost) {
+      productData.costPrice = parseFloat(productCost);
+    }
+    if (productWeight) {
+      productData.weight = parseFloat(productWeight);
+    }
+    if (productImage) {
+      productData.imageUrl = productImage;
+    }
+
+    // Add createdBy for new products
+    if (!productId) {
+      productData.createdBy = currentUser.uid;
+      productData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      productData.sold = 0;
+      productData.views = 0;
+    }
+
+    // Save to Firestore
+    if (productId) {
+      // Update existing product
+      await db.collection("products").doc(productId).update(productData);
+      showToast('Product updated successfully', 'success');
+    } else {
+      // Create new product
+      await db.collection("products").add(productData);
+      showToast('Product created successfully', 'success');
+    }
+
+    // Close modal and refresh page
+    const modal = bootstrap.Modal.getInstance(document.getElementById('productModal'));
+    modal.hide();
+    
+    // Refresh marketplace page
+    loadPageContent('marketplace');
+
+  } catch (error) {
+    console.error('Error saving product:', error);
+    showToast('Error saving product: ' + error.message, 'danger');
+  }
+}
+
+// View Product Function
+async function viewProduct(productId) {
+  try {
+    const productDoc = await db.collection("products").doc(productId).get();
+    if (!productDoc.exists) {
+      showToast('Product not found', 'danger');
+      return;
+    }
+
+    const product = productDoc.data();
+    
+    // Show product details in a modal
+    const modalContent = `
+      <div class="modal fade" id="viewProductModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Product Details: ${product.name || 'Unnamed Product'}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-4">
+                  <img src="${product.imageUrl || 'https://via.placeholder.com/300x300?text=No+Image'}" 
+                       class="img-fluid rounded mb-3" 
+                       alt="${product.name}"
+                       onerror="this.src='https://via.placeholder.com/300x300?text=No+Image'">
+                </div>
+                <div class="col-md-8">
+                  <h4>${product.name}</h4>
+                  <p class="text-muted">${product.brand ? 'Brand: ' + product.brand : ''}</p>
+                  <h5 class="text-primary">RM${parseFloat(product.price || 0).toFixed(2)}</h5>
+                  
+                  <div class="mb-3">
+                    <span class="badge ${product.stock > 0 ? 'bg-success' : 'bg-danger'}">
+                      ${product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                    </span>
+                    <span class="badge ${product.status === 'active' ? 'bg-success' : 'bg-secondary'} ms-2">
+                      ${product.status || 'active'}
+                    </span>
+                    ${product.featured ? '<span class="badge bg-warning ms-2">Featured</span>' : ''}
+                  </div>
+                  
+                  <p><strong>Category:</strong> ${product.category || 'N/A'}</p>
+                  <p><strong>SKU:</strong> ${product.sku || 'N/A'}</p>
+                  <p><strong>Stock:</strong> ${product.stock || 0} units</p>
+                  ${product.costPrice ? `<p><strong>Cost Price:</strong> RM${parseFloat(product.costPrice).toFixed(2)}</p>` : ''}
+                  ${product.weight ? `<p><strong>Weight:</strong> ${product.weight} kg</p>` : ''}
+                </div>
+              </div>
+              
+              ${product.description ? `
+                <div class="mt-4">
+                  <h6>Description</h6>
+                  <p>${product.description}</p>
+                </div>
+              ` : ''}
+              
+              ${product.features ? `
+                <div class="mt-3">
+                  <h6>Features</h6>
+                  <p>${product.features.replace(/\n/g, '<br>')}</p>
+                </div>
+              ` : ''}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-warning" onclick="editProduct('${productId}')">
+                <i class="fas fa-edit me-1"></i> Edit Product
+              </button>
             </div>
           </div>
         </div>
-      `;
+      </div>
+    `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById('viewProductModal');
+    if (existingModal) {
+      existingModal.remove();
     }
+
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalContent);
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('viewProductModal'));
+    modal.show();
+
+    // Remove modal when hidden
+    document.getElementById('viewProductModal').addEventListener('hidden.bs.modal', function () {
+      this.remove();
+    });
+
+  } catch (error) {
+    console.error('Error viewing product:', error);
+    showToast('Error loading product details', 'danger');
+  }
+}
+
+// Edit Product Function
+async function editProduct(productId) {
+  try {
+    const productDoc = await db.collection("products").doc(productId).get();
+    if (!productDoc.exists) {
+      showToast('Product not found', 'danger');
+      return;
+    }
+
+    const productData = productDoc.data();
+    showProductModal(productId, productData);
+  } catch (error) {
+    console.error('Error editing product:', error);
+    showToast('Error loading product for editing', 'danger');
+  }
+}
+
+// Delete Product Function
+async function deleteProduct(productId) {
+  try {
+    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      return;
+    }
+
+    await db.collection("products").doc(productId).delete();
+    showToast('Product deleted successfully', 'success');
+    
+    // Refresh marketplace page
+    loadPageContent('marketplace');
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    showToast('Error deleting product', 'danger');
+  }
+}
 
     async function loadSettingsPage() {
       return `
@@ -7678,66 +9631,6 @@ function refreshInsights() {
       }
     }
 
-    async function saveEvent() {
-      const form = document.getElementById('addEventForm');
-      const formData = new FormData(form);
-
-      const eventData = {
-        name: formData.get('name'),
-        type: formData.get('type'),
-        date: new Date(formData.get('date')),
-        description: formData.get('description'),
-        maxParticipants: formData.get('maxParticipants') ? parseInt(formData.get('maxParticipants')) : null,
-        participants: 0,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-
-      try {
-        await db.collection('events').add(eventData);
-        showToast('Event added successfully', 'success');
-        bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
-        form.reset();
-
-        // Reload events page
-        if (document.querySelector('.sidebar-menu a.active').getAttribute('data-page') === 'events-tournaments') {
-          loadPageContent('events-tournaments');
-        }
-      } catch (error) {
-        console.error('Error adding event:', error);
-        showToast('Error adding event', 'danger');
-      }
-    }
-
-    async function saveProduct() {
-      const form = document.getElementById('addProductForm');
-      const formData = new FormData(form);
-
-      const productData = {
-        name: formData.get('name'),
-        category: formData.get('category'),
-        price: parseFloat(formData.get('price')),
-        stock: parseInt(formData.get('stock')),
-        description: formData.get('description'),
-        imageUrl: formData.get('imageUrl'),
-        status: 'Active',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-
-      try {
-        await db.collection('products').add(productData);
-        showToast('Product added successfully', 'success');
-        bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
-        form.reset();
-
-        // Reload marketplace page
-        if (document.querySelector('.sidebar-menu a.active').getAttribute('data-page') === 'marketplace') {
-          loadPageContent('marketplace');
-        }
-      } catch (error) {
-        console.error('Error adding product:', error);
-        showToast('Error adding product', 'danger');
-      }
-    }
 
     // Placeholder functions for other operations
     function editFacility(id) {
@@ -7956,26 +9849,6 @@ function refreshInsights() {
 
     function markAllAsRead() {
       showToast('All notifications marked as read', 'success');
-    }
-
-    function editEvent(id) {
-      showToast('Edit event: ' + id, 'info');
-    }
-
-    function deleteEvent(id) {
-      if (confirm('Are you sure you want to delete this event?')) {
-        showToast('Deleting event: ' + id, 'info');
-      }
-    }
-
-    function editProduct(id) {
-      showToast('Edit product: ' + id, 'info');
-    }
-
-    function deleteProduct(id) {
-      if (confirm('Are you sure you want to delete this product?')) {
-        showToast('Deleting product: ' + id, 'info');
-      }
     }
 
     function saveSettings() {
@@ -8233,132 +10106,72 @@ function refreshInsights() {
     `;
     }
 
-    // View Facility Details Function
-    async function viewFacilityDetails(id) {
+    async function viewFacilityDetails(facilityId) {
       try {
-        const facility = adminFacilities.find(f => f.id === id);
+        const facility = adminFacilities.find(f => f.id === facilityId);
         if (!facility) {
           showToast('Facility not found', 'danger');
           return;
         }
 
-        // Get facility bookings for statistics
-        const bookingsSnapshot = await db.collection("bookings")
-          .where("facilityId", "==", id)
-          .get();
-
-        const totalBookings = bookingsSnapshot.size;
-        let totalRevenue = 0;
-        bookingsSnapshot.forEach(doc => {
-          const booking = doc.data();
-          if (booking.price) {
-            totalRevenue += parseFloat(booking.price);
-          }
-        });
-
         const modalContent = `
-            <div class="modal fade" id="viewFacilityModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Facility Details: ${facility.name}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    ${facility.imageUrl ? `
-                                        <img src="${facility.imageUrl}" alt="${facility.name}" class="img-fluid rounded mb-3" style="max-height: 200px; width: 100%; object-fit: cover;">
-                                    ` : ''}
-                                    <h6>Basic Information</h6>
-                                    <p><strong>Name:</strong> ${facility.name || 'N/A'}</p>
-                                    <p><strong>Type:</strong> ${facility.type || 'N/A'}</p>
-                                    <p><strong>Location:</strong> ${facility.location || 'N/A'}</p>
-                                    <p><strong>Price:</strong> RM${facility.price || '0'}</p>
-                                    <p><strong>Capacity:</strong> ${facility.capacity || 'N/A'} people</p>
-                                    <p><strong>Status:</strong> 
-                                        <span class="badge ${facility.status === 'Active' ? 'bg-success' : facility.status === 'Maintenance' ? 'bg-warning' : 'bg-secondary'}">
-                                            ${facility.status || 'N/A'}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>Statistics</h6>
-                                    <p><strong>Total Bookings:</strong> ${totalBookings}</p>
-                                    <p><strong>Total Revenue:</strong> RM${totalRevenue.toFixed(2)}</p>
-                                    <p><strong>Average Revenue per Booking:</strong> RM${totalBookings > 0 ? (totalRevenue / totalBookings).toFixed(2) : '0'}</p>
-                                    
-                                    <h6 class="mt-3">Amenities</h6>
-                                    ${facility.amenities && facility.amenities.length > 0 ?
-            facility.amenities.map(amenity => `
-                                            <span class="badge bg-dark text-light me-1 mb-1">${amenity}</span>
-                                        `).join('') :
-            '<p class="text-muted">No amenities specified</p>'
-          }
-                                </div>
-                            </div>
-                            
-                            ${facility.description ? `
-                                <div class="mt-3">
-                                    <h6>Description</h6>
-                                    <p>${facility.description}</p>
-                                </div>
-                            ` : ''}
-                            
-                            <div class="mt-3">
-                                <h6>Recent Bookings</h6>
-                                ${totalBookings > 0 ? `
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>User</th>
-                                                    <th>Date</th>
-                                                    <th>Time</th>
-                                                    <th>Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${bookingsSnapshot.docs.slice(0, 5).map(doc => {
-            const booking = doc.data();
-            return `
-                                                        <tr>
-                                                            <td>${booking.userEmail || 'Unknown User'}</td>
-                                                            <td>${booking.date.toDate().toLocaleString() || 'N/A'}</td>
-                                                            <td>${booking.slots || 'N/A'}</td>
-                                                            <td><span class="badge badge-status badge-${booking.status || 'pending'}">${booking.status || 'Pending'}</span></td>
-                                                        </tr>
-                                                    `;
-          }).join('')}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ` : '<p class="text-muted">No bookings yet</p>'}
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary" onclick="editFacility('${id}')">Edit Facility</button>
-                        </div>
-                    </div>
-                </div>
+      <div class="modal fade" id="viewFacilityModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Facility Details: ${facility.name}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-        `;
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <img src="${facility.imageUrl || 'https://via.placeholder.com/400x300?text=No+Image'}" 
+                       class="img-fluid rounded mb-3" alt="${facility.name}"
+                       onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+                </div>
+                <div class="col-md-6">
+                  <h6>Basic Information</h6>
+                  <p><strong>Type:</strong> ${facility.type || 'N/A'}</p>
+                  <p><strong>Location:</strong> ${facility.location || 'N/A'}</p>
+                  <p><strong>Price:</strong> RM${facility.price || '0'}</p>
+                  <p><strong>Capacity:</strong> ${facility.capacity || 'N/A'} people</p>
+                  <p><strong>Status:</strong> <span class="badge ${facility.status === 'Active' ? 'bg-success' : facility.status === 'Maintenance' ? 'bg-warning' : 'bg-secondary'}">${facility.status || 'Active'}</span></p>
+                </div>
+              </div>
+              
+              ${facility.description ? `
+                <div class="mt-3">
+                  <h6>Description</h6>
+                  <p>${facility.description}</p>
+                </div>
+              ` : ''}
+              
+              ${facility.amenities && facility.amenities.length > 0 ? `
+                <div class="mt-3">
+                  <h6>Amenities</h6>
+                  <div class="d-flex flex-wrap gap-2">
+                    ${facility.amenities.map(amenity =>
+          `<span class="badge bg-primary">${amenity}</span>`
+        ).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-warning" onclick="editFacility('${facility.id}')">
+                <i class="fas fa-edit me-1"></i> Edit Facility
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
-        // Remove existing modal if any
-        const existingModal = document.getElementById('viewFacilityModal');
-        if (existingModal) {
-          existingModal.remove();
-        }
-
-        // Add modal to page
         document.body.insertAdjacentHTML('beforeend', modalContent);
+        const modal = new bootstrap.Modal(document.getElementById('viewFacilityModal'));
+        modal.show();
 
-        // Show modal
-        const viewModal = new bootstrap.Modal(document.getElementById('viewFacilityModal'));
-        viewModal.show();
-
-        // Remove modal from DOM when hidden
         document.getElementById('viewFacilityModal').addEventListener('hidden.bs.modal', function () {
           this.remove();
         });
@@ -8369,138 +10182,74 @@ function refreshInsights() {
       }
     }
 
-    // Enhanced viewBooking function with better error handling
     async function viewBooking(bookingId) {
       try {
-        console.log('Viewing booking:', bookingId);
-
-        // First try to get from local allBookings array (faster)
-        let booking = allBookings.find(b => b.id === bookingId);
-
-        // If not found locally or needs fresh data, fetch from Firestore
-        if (!booking) {
-          console.log('Booking not found locally, fetching from Firestore...');
-          const bookingDoc = await db.collection('bookings').doc(bookingId).get();
-          if (!bookingDoc.exists) {
-            showToast('Booking not found', 'danger');
-            return;
-          }
-          booking = { id: bookingDoc.id, ...bookingDoc.data() };
+        const bookingDoc = await db.collection('bookings').doc(bookingId).get();
+        if (!bookingDoc.exists) {
+          showToast('Booking not found', 'danger');
+          return;
         }
 
-        // Format dates for display
-        let bookingDate = 'N/A';
-        let bookingTime = 'N/A';
+        const booking = bookingDoc.data();
+        const date = booking.date ?
+          (booking.date.toDate ? booking.date.toDate().toLocaleDateString() :
+            new Date(booking.date).toLocaleDateString()) : 'N/A';
 
-        try {
-          // Handle date formatting
-          if (booking.date && typeof booking.date.toDate === 'function') {
-            bookingDate = booking.date.toDate().toLocaleDateString();
-          } else if (booking.date) {
-            // If it's already a string, format it nicely
-            const dateObj = new Date(booking.date);
-            if (!isNaN(dateObj.getTime())) {
-              bookingDate = dateObj.toLocaleDateString();
-            } else {
-              bookingDate = booking.date; // Use as is if can't parse
-            }
-          }
-
-          // Handle time slot
-          if (booking.slots) {
-            bookingTime = booking.slots;
-          }
-        } catch (dateError) {
-          console.error('Error formatting dates:', dateError);
-        }
-
-        // Get facility name
-        const facility = adminFacilities.find(f => f.id === booking.facilityId);
-        const facilityName = facility ? facility.name : 'Unknown Facility';
-
-        // Create modal HTML
-        const modalHTML = `
-            <div class="modal fade" id="bookingDetailsModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Booking Details</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6>Booking Information</h6>
-                                    <p><strong>Facility:</strong> ${facilityName}</p>
-                                    <p><strong>Date:</strong> ${bookingDate}</p>
-                                    <p><strong>Time:</strong> ${bookingTime}</p>
-                                    <p><strong>Duration:</strong> ${booking.duration || 1} hour(s)</p>
-                                    <p><strong>Status:</strong> 
-                                        <span class="badge badge-status badge-${booking.status || 'pending'}">
-                                            ${booking.status || 'Pending'}
-                                        </span>
-                                    </p>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6>User Information</h6>
-                                    <p><strong>Name:</strong> ${booking.userName || 'N/A'}</p>
-                                    <p><strong>Email:</strong> ${booking.userEmail || 'N/A'}</p>
-                                    <p><strong>Phone:</strong> ${booking.userPhone || 'N/A'}</p>
-                                </div>
-                            </div>
-                            
-                            ${booking.notes ? `
-                                <div class="row mt-3">
-                                    <div class="col-12">
-                                        <h6>Additional Notes</h6>
-                                        <p>${booking.notes}</p>
-                                    </div>
-                                </div>
-                            ` : ''}
-                            
-                            <div class="row mt-3">
-                                <div class="col-12">
-                                    <h6>Payment Information</h6>
-                                    <p><strong>Amount:</strong> RM${parseFloat(booking.price || 0).toFixed(2)}</p>
-                                    <p><strong>Payment Method:</strong> ${booking.paymentMethod || 'Online'}</p>
-                                    <p><strong>Booking ID:</strong> ${bookingId}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            ${booking.status === 'pending' ? `
-                                <button type="button" class="btn btn-success" onclick="updateBookingStatus('${bookingId}', 'approved')">Approve</button>
-                                <button type="button" class="btn btn-danger" onclick="updateBookingStatus('${bookingId}', 'cancelled')">Cancel</button>
-                            ` : ''}
-                            <button type="button" class="btn btn-primary" onclick="editBooking('${bookingId}')">Edit Booking</button>
-                        </div>
-                    </div>
-                </div>
+        const modalContent = `
+      <div class="modal fade" id="viewBookingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Booking Details</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-        `;
+            <div class="modal-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6>Booking Information</h6>
+                  <p><strong>User:</strong> ${booking.userEmail || booking.userName || 'Unknown'}</p>
+                  <p><strong>Facility:</strong> ${booking.facilityName || 'Unknown'}</p>
+                  <p><strong>Date:</strong> ${date}</p>
+                  <p><strong>Time:</strong> ${booking.slot || booking.slots || 'N/A'}</p>
+                  <p><strong>Duration:</strong> ${booking.duration || '1 hour(s)'}</p>
+                </div>
+                <div class="col-md-6">
+                  <h6>Payment & Status</h6>
+                  <p><strong>Amount:</strong> RM${parseFloat(booking.price || 0).toFixed(2)}</p>
+                  <p><strong>Status:</strong> <span class="badge badge-status badge-${booking.status || 'pending'}">${booking.status || 'pending'}</span></p>
+                  <p><strong>Payment Method:</strong> ${booking.paymentMethod || 'Online'}</p>
+                </div>
+              </div>
+              
+              ${booking.notes ? `
+                <div class="mt-3">
+                  <h6>Additional Notes</h6>
+                  <p>${booking.notes}</p>
+                </div>
+              ` : ''}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" class="btn btn-warning" onclick="editBooking('${bookingId}')">
+                <i class="fas fa-edit me-1"></i> Edit Booking
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
 
-        // Remove existing modal if any
-        const existingModal = document.getElementById('bookingDetailsModal');
-        if (existingModal) {
-          existingModal.remove();
-        }
+        document.body.insertAdjacentHTML('beforeend', modalContent);
+        const modal = new bootstrap.Modal(document.getElementById('viewBookingModal'));
+        modal.show();
 
-        // Add modal to page
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-
-        // Show modal
-        const bookingModal = new bootstrap.Modal(document.getElementById('bookingDetailsModal'));
-        bookingModal.show();
-
-        // Remove modal when hidden
-        document.getElementById('bookingDetailsModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('viewBookingModal').addEventListener('hidden.bs.modal', function () {
           this.remove();
         });
 
       } catch (error) {
         console.error('Error viewing booking:', error);
-        showToast('Error loading booking details: ' + error.message, 'danger');
+        showToast('Error loading booking details', 'danger');
       }
     }
     /// Print Booking Details Function
@@ -9254,7 +11003,7 @@ function refreshInsights() {
       return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
     }
 
-    
+
 
     // Update the window object with new functions
     window.rescheduleBooking = rescheduleBooking;
